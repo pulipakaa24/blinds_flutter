@@ -1,6 +1,8 @@
 import 'package:blind_master/BlindMasterScreens/Startup/splash_screen.dart';
 import 'package:flutter/material.dart';
 
+enum DaysOfWeek {Su, M, Tu, W, Th, F, Sa}
+
 void main() {
   runApp(const MyApp());
 }

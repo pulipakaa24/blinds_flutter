@@ -10,10 +10,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 class PeripheralScreen extends StatefulWidget {
-  const PeripheralScreen({super.key, required this.peripheralId, required this.deviceId, required this.peripheralNum});
+  const PeripheralScreen({super.key, required this.peripheralId, required this.deviceId, required this.peripheralNum, required this.deviceName});
   final int peripheralId;
   final int peripheralNum;
   final int deviceId;
+  final String deviceName;
   @override
   State<PeripheralScreen> createState() => _PeripheralScreenState();
 }
@@ -334,7 +335,7 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          peripheralName,
+          "${widget.deviceName} - $peripheralName",
           style: GoogleFonts.aBeeZee(),
         ),
         backgroundColor: Theme.of(context).primaryColorLight,
@@ -462,7 +463,8 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => SchedulesScreen()
+                    builder: (context) => SchedulesScreen(peripheralId: widget.peripheralId, periphName: peripheralName,
+                    deviceId: widget.deviceId, peripheralNum: widget.peripheralNum, deviceName: widget.deviceName,)
                   )
                 );
               },

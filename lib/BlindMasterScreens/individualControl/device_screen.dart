@@ -140,7 +140,7 @@ class _DeviceScreenState extends State<DeviceScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => PeripheralScreen(peripheralId: peripheral['id'], 
+                          builder: (context) => PeripheralScreen(deviceName: deviceName, peripheralId: peripheral['id'], 
                             peripheralNum: peripheral['port'], deviceId: widget.deviceId,),
                         ),
                       ).then((_) { populatePeripherals(); });
@@ -220,7 +220,7 @@ class _DeviceScreenState extends State<DeviceScreen> {
               ),
               const SizedBox(height: 20),
               DropdownButtonFormField<int>(
-                value: port,
+                initialValue: port,
                 decoration: const InputDecoration(
                   labelText: 'Hub Port',
                   border: OutlineInputBorder(),

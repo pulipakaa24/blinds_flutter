@@ -7,6 +7,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+
+enum authTypes {
+  OPEN,
+  WEP,
+  WPA_PSK,
+  WPA2_PSK,
+  WPA_WPA2_PSK,
+  WPA2_ENTERPRISE,
+  WPA3_PSK,
+  WPA2_WPA3_PSK,
+  WAPI_PSK,
+  OWE,
+  WPA3_ENT_192,
+  WPA3_EXT_PSK,
+  WPA3_EXT_PSK_MIXED_MODE,
+  DPP,
+  WPA3_ENTERPRISE,
+  WPA2_WPA3_ENTERPRISE,
+  WPA_ENTERPRISE
+}
+
+const List<authTypes> enterprise = [
+  authTypes.WPA_ENTERPRISE,authTypes.WPA2_ENTERPRISE,
+  authTypes.WPA3_ENTERPRISE,authTypes.WPA2_WPA3_ENTERPRISE,
+  authTypes.WPA3_ENT_192
+];
+
 class DeviceSetup extends StatefulWidget {
   final BluetoothDevice device;
 
@@ -19,17 +46,16 @@ class DeviceSetup extends StatefulWidget {
 class _DeviceSetupState extends State<DeviceSetup> {
   List<BluetoothService> _services = [];
 
-  List<String> openNetworks = [];
-  List<String> pskNetworks = [];
+  List<Map<String, dynamic>> networks = [];
 
   late StreamSubscription<List<int>> _ssidSub;
   StreamSubscription<List<int>>? _confirmSub;
   
   Widget? wifiList;
   String? message;
-  String? password;
 
   final passControl = TextEditingController();
+  final unameControl = TextEditingController();
 
   @override void initState() {
     super.initState();
@@ -44,93 +70,77 @@ class _DeviceSetupState extends State<DeviceSetup> {
     super.dispose();
   }
 
-  Future setWifiListListener(BluetoothCharacteristic ssidListChar) async {
-    setState(() {
-      wifiList = null;
-    });
-    await ssidListChar.setNotifyValue(true);
+  Future setRefreshListener(BluetoothCharacteristic ssidRefreshChar, BluetoothCharacteristic ssidListChar) async {
+    await ssidRefreshChar.setNotifyValue(true);
 
-    _ssidSub = ssidListChar.onValueReceived.listen((List<int> value) {
-      List<String> ssidList = [];
-      bool noNetworks = false;
-
+    _ssidSub = ssidRefreshChar.onValueReceived.listen((List<int> value) async {
       try {
-        final val = utf8.decode(value);
-        if (val == ';') noNetworks = true;
-        ssidList = val
-          .split(';')
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty)
-          .toList();
-        openNetworks = ssidList
-          .where((s) => s.split(',')[1] == "OPEN")
-          .map((s) => s.split(',')[0])
-          .toList();
-        pskNetworks = ssidList
-          .where((s) => s.split(',')[1] == "SECURED")
-          .map((s) => s.split(',')[0])
-          .toList();
+        final command = utf8.decode(value);
+        if (command == "Ready") {
+          // Device is ready, now read the WiFi list
+          List<int> rawData = await ssidListChar.read();
+
+          try {
+            final val = utf8.decode(rawData);
+            networks = json.decode(val) as List<Map<String, dynamic>>;
+          } catch (e) {
+            if(!mounted)return;
+            ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
+          }
+
+          // Acknowledge completion
+          try {
+            await ssidRefreshChar.write(utf8.encode("Done"), withoutResponse: ssidRefreshChar.properties.writeWithoutResponse);
+          } catch (e) {
+            if(!mounted)return;
+            ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(Exception("Failed to send Done")));
+          }
+
+          if(!mounted)return;
+          setState(() {
+            wifiList = networks.isEmpty
+                  ? SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.6,
+                        child: const Center(
+                          child: Text(
+                            "No networks found...",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 15),
+                          ),
+                        ),
+                      ),
+                    )
+                  : ListView(
+                      children: [
+                        ...buildSSIDs()
+                      ],
+                    );
+          });
+        }
       } catch (e) {
         if(!mounted)return;
         ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
       }
-
-      setState(() {
-        wifiList = noNetworks
-              ? SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.6,
-                    child: const Center(
-                      child: Text(
-                        "No networks found...",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 15),
-                      ),
-                    ),
-                  ),
-                )
-              : ssidList.isNotEmpty
-              ? ListView(
-                  children: [
-                    ...buildSSIDs()
-                  ],
-                )
-              : null;
-      });
     });
   }
 
   List<Widget> buildSSIDs() {
-    List<Widget> open = openNetworks.map((s) {
+    List<Widget> networkList = networks.map((s) {
       return Card(
         child: ListTile(
-          leading: const Icon(Icons.wifi),
-          title: Text(s),
+          leading: Icon((s["rssi"] as int < -70) ? Icons.wifi_1_bar : ((s["rssi"] as int < -50) ? Icons.wifi_2_bar: Icons.wifi)),
+          title: Text(s["ssid"] as String),
+          subtitle: Text(authTypes.values[s["auth"] as int].name),
           trailing: const Icon(Icons.arrow_forward_ios_rounded),
           onTap: () {
-            openConnect(s);
+            authenticate(s);
           },
         ),
       );
     }).toList();
-    List<Widget> secure = pskNetworks.map((s) {
-      return Card(
-        child: ListTile(
-          leading: const Icon(Icons.wifi_password),
-          title: Text(s),
-          trailing: const Icon(Icons.arrow_forward_ios_rounded),
-          onTap: () {
-            setPassword(s);
-          },
-        ),
-      );
-    }).toList();
-    return open + secure;
-  }
-
-  Future openConnect(String ssid) async {
-    await transmitWiFiDetails(ssid, "");
+    return networkList;
   }
 
   Future discoverServices() async{
@@ -157,37 +167,74 @@ class _DeviceSetupState extends State<DeviceSetup> {
   Future initSetup() async {
     await discoverServices();
     final ssidListChar = _services[0].characteristics.lastWhere((c) => c.uuid.str == "0000");
-    await setWifiListListener(ssidListChar);
+    final ssidRefreshChar = _services[0].characteristics.lastWhere((c) => c.uuid.str == "0004");
+    await setRefreshListener(ssidRefreshChar, ssidListChar);
     refreshWifiList();
   }
 
-  Future setPassword(String ssid) async {
-    String? password = await showDialog(
+  bool isEnterprise(Map<String, dynamic> network) {
+    authTypes type = authTypes.values[network["auth"] as int];
+    return enterprise.contains(type);
+  }
+  
+  bool isOpen(Map<String, dynamic> network) {
+    authTypes type = authTypes.values[network["auth"] as int];
+    return type == authTypes.OPEN;
+  }
+
+  Future authenticate(Map<String, dynamic> network) async {
+    bool ent = isEnterprise(network);
+    bool open = isOpen(network);
+    Map<String, String> creds = await showDialog(
       context: context, 
       builder: (dialogContext) {
         return AlertDialog(
           title: Text(
-            ssid,
+            network["ssid"],
             style: GoogleFonts.aBeeZee(),
           ),
           content: Form(
             autovalidateMode: AutovalidateMode.onUnfocus,
-            child: TextFormField(
-              controller: passControl,
-              obscureText: true,
-              decoration: const InputDecoration(hintText: "Enter password"),
-              validator: (value) {
-                if (value == null) return "null input";
-                if (value.length < 8) return "not long enough!";
-                return null;
-              },
-              textInputAction: TextInputAction.send,
-              onFieldSubmitted: (value) => Navigator.pop(dialogContext, passControl.text),
-            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (ent)
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      TextFormField(
+                        controller: unameControl,
+                        decoration: const InputDecoration(hintText: "Enter your enterprise login"),
+                        textInputAction: TextInputAction.next, // Shows "Next" on keyboard
+                        onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(), // Moves to password
+                        validator: (value) => (value == null || value.isEmpty) ? "Empty username!" : null,
+                      ),
+                      const SizedBox(height: 16),
+                    ]
+                  ),
+                if (!open)
+                  TextFormField(
+                    controller: passControl,
+                    obscureText: true,
+                    decoration: const InputDecoration(hintText: "Enter password"),
+                    validator: (value) => (value == null || value.length < 8) ? "Not long enough!" : null,
+                    textInputAction: TextInputAction.send,
+                    onFieldSubmitted: (value) {
+                      if (Form.of(context).validate()) {
+                        Navigator.pop(dialogContext, (ent ?
+                          {"uname": unameControl.text, "password": passControl.text}
+                          : (open ? {} : {"password": passControl.text})));
+                      }
+                    },
+                  ),
+              ]
+            )
+              
           ),
           actions: [
             TextButton(
               onPressed: () {
+                unameControl.clear();
                 passControl.clear();
                 Navigator.pop(dialogContext);
               },
@@ -197,6 +244,7 @@ class _DeviceSetupState extends State<DeviceSetup> {
               onPressed: () {
                 Navigator.pop(dialogContext, passControl.text);
                 passControl.clear();
+                unameControl.clear();
               },
               child: const Text("Connect"),
             ),
@@ -205,37 +253,30 @@ class _DeviceSetupState extends State<DeviceSetup> {
       }
     );
 
-    await transmitWiFiDetails(ssid, password);
+    if (creds["password"] == null && !open) return;
+    if (creds["uname"] == null && ent) return;
+    await transmitWiFiDetails(network["ssid"], network["auth"], creds);
   }
 
-  Future transmitWiFiDetails(String ssid, String? password) async {
-    if (password == null) return;
-
+  Future transmitWiFiDetails(String ssid, int auth, Map<String, String> creds) async {
     setState(() {
       wifiList = null;
       message = "Attempting Connection...";
     });
 
-    final ssidEntryChar = _services[0].characteristics.lastWhere((c) => c.uuid.str == "0001");
+    final credsChar = _services[0].characteristics.lastWhere((c) => c.uuid.str == "0001");
+    Map<String, dynamic> credsJson = {
+      "ssid": ssid,
+      "auth": auth,
+      ...creds,  // Spread operator adds all key-value pairs from creds
+    };
+    
     try {
+      String jsonString = json.encode(credsJson);
       try {
-        await ssidEntryChar.write(utf8.encode(ssid), withoutResponse: ssidEntryChar.properties.writeWithoutResponse);
+        await credsChar.write(utf8.encode(jsonString), withoutResponse: credsChar.properties.writeWithoutResponse);
       } catch (e) {
-        throw Exception("SSID Write Error");
-      }
-    } catch (e){
-      if(!mounted)return;
-      ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
-      refreshWifiList();
-      return;
-    }
-
-    final passEntryChar = _services[0].characteristics.lastWhere((c) => c.uuid.str == "0002");
-    try {
-      try {
-        await passEntryChar.write(utf8.encode(password), withoutResponse: passEntryChar.properties.writeWithoutResponse);
-      } catch (e) {
-        throw Exception("Password Write Error");
+        throw Exception("Credentials Write Error");
       }
     } catch (e){
       if(!mounted)return;
@@ -265,7 +306,7 @@ class _DeviceSetupState extends State<DeviceSetup> {
         });
       } else if (connectResponse == "Error") {
         _confirmSub?.cancel();
-        throw Exception("SSID/Password Incorrect");
+        throw Exception("SSID/Password Incorrect / Other credential error");
       }
       } catch (e) {
         if (!mounted) return;
@@ -279,12 +320,13 @@ class _DeviceSetupState extends State<DeviceSetup> {
   Future refreshWifiList() async{
     final ssidRefreshChar = _services[0].characteristics.lastWhere((c) => c.uuid.str == "0004");
     setState(() {
+      wifiList = null;
       message = null;
     });
     
     try {
       try {
-        await ssidRefreshChar.write(utf8.encode("refresh"), withoutResponse: ssidRefreshChar.properties.writeWithoutResponse);
+        await ssidRefreshChar.write(utf8.encode("Start"), withoutResponse: ssidRefreshChar.properties.writeWithoutResponse);
       } catch (e) {
         throw Exception ("Refresh Error");
       }

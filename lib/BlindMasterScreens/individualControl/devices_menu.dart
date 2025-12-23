@@ -159,17 +159,20 @@ class _DevicesMenuState extends State<DevicesMenu> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: deviceList ?? const Center(child: CircularProgressIndicator()),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => AddDevice()),
-          );
-        },
-        foregroundColor: Theme.of(context).highlightColor,
-        backgroundColor: Theme.of(context).primaryColorDark,
-        child: Icon(Icons.add),
-      ),
+      floatingActionButton: Container(
+        padding: EdgeInsets.all(25),
+        child:FloatingActionButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => AddDevice()),
+            );
+          },
+          foregroundColor: Theme.of(context).highlightColor,
+          backgroundColor: Theme.of(context).primaryColorDark,
+          child: Icon(Icons.add),
+        ),
+      )
     );
   }
 }
