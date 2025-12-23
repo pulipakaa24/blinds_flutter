@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:blind_master/BlindMasterResources/error_snackbar.dart';
@@ -10,8 +11,9 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class SetDeviceName extends StatefulWidget {
-  const SetDeviceName({super.key, required this.tokenEntryChar, required this.device});
+  const SetDeviceName({super.key, required this.tokenEntryChar, required this.authConfirmChar, required this.device});
   final BluetoothCharacteristic tokenEntryChar;
+  final BluetoothCharacteristic authConfirmChar;
   final BluetoothDevice device;
 
   @override
@@ -21,6 +23,7 @@ class SetDeviceName extends StatefulWidget {
 class _SetDeviceNameState extends State<SetDeviceName> {
   final deviceNameController = TextEditingController();
   Widget? screen;
+  StreamSubscription<List<int>>? _authSub;
 
   @override
   void initState() {
@@ -30,6 +33,7 @@ class _SetDeviceNameState extends State<SetDeviceName> {
 
   @override
   void dispose() {
+    _authSub?.cancel();
     deviceNameController.dispose();
     super.dispose();
   }
@@ -75,6 +79,48 @@ class _SetDeviceNameState extends State<SetDeviceName> {
       return;
     }
 
+    // Set up authentication confirmation listener
+    try {
+      await widget.authConfirmChar.setNotifyValue(true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(Exception("Failed to set up authentication listener")));
+      return;
+    }
+
+    _authSub = widget.authConfirmChar.onValueReceived.listen((List<int> authVal) async {
+      try {
+        final authResponse = utf8.decode(authVal);
+        if (authResponse == "Authenticated") {
+          if (!mounted) return;
+          _authSub?.cancel();
+          
+          await widget.device.disconnectAndUpdateStream().catchError((e) {
+            if(!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
+          });
+
+          if (!mounted) return;
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => HomeScreen()),
+            (route) => false,
+          );
+        } else if (authResponse == "Error") {
+          _authSub?.cancel();
+          throw Exception("Authentication failed. Please try again.");
+        }
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
+        setState(() {
+          initScreen();
+        });
+        return;
+      }
+    });
+
+    // Write the token
     try {
       try {
         await widget.tokenEntryChar.write(utf8.encode(token), withoutResponse: widget.tokenEntryChar.properties.writeWithoutResponse);
@@ -84,20 +130,12 @@ class _SetDeviceNameState extends State<SetDeviceName> {
     } catch (e){
       if(!mounted)return;
       ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
+      _authSub?.cancel();
+      setState(() {
+        initScreen();
+      });
       return;
     }
-
-    await widget.device.disconnectAndUpdateStream().catchError((e) {
-      if(!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
-    });
-
-    if (!mounted) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => HomeScreen()),
-      (route) => false,
-    );
   }
 
   Future onPressed() async {
@@ -120,7 +158,17 @@ class _SetDeviceNameState extends State<SetDeviceName> {
       body: SizedBox(
         height: MediaQuery.of(context).size.height * 0.6,
         child: Center(
-          child: screen ?? CircularProgressIndicator(color: Theme.of(context).primaryColorLight),
+          child: screen ?? Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Theme.of(context).primaryColorLight),
+              SizedBox(height: 10),
+              Text(
+                "Authenticating device...",
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         )
       )
     );

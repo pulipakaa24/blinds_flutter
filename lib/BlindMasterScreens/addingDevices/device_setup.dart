@@ -44,6 +44,7 @@ class DeviceSetup extends StatefulWidget {
 }
 
 class _DeviceSetupState extends State<DeviceSetup> {
+  bool refreshing = false;
   List<BluetoothService> _services = [];
 
   List<Map<String, dynamic>> networks = [];
@@ -82,7 +83,8 @@ class _DeviceSetupState extends State<DeviceSetup> {
 
           try {
             final val = utf8.decode(rawData);
-            networks = json.decode(val) as List<Map<String, dynamic>>;
+            final decoded = json.decode(val) as List;
+            networks = decoded.map((e) => e as Map<String, dynamic>).toList();
           } catch (e) {
             if(!mounted)return;
             ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
@@ -118,6 +120,12 @@ class _DeviceSetupState extends State<DeviceSetup> {
                       ],
                     );
           });
+          try {
+            await ssidRefreshChar.write(utf8.encode("Done"), withoutResponse: ssidRefreshChar.properties.writeWithoutResponse);
+          } catch (e) {
+            throw Exception ("Handshake Termination Error. Restart setup process.");
+          }
+          refreshing = false;
         }
       } catch (e) {
         if(!mounted)return;
@@ -242,7 +250,9 @@ class _DeviceSetupState extends State<DeviceSetup> {
             ),
             TextButton(
               onPressed: () {
-                Navigator.pop(dialogContext, passControl.text);
+                Navigator.pop(dialogContext, (ent ?
+                  {"uname": unameControl.text, "password": passControl.text}
+                  : (open ? {} : {"password": passControl.text})));
                 passControl.clear();
                 unameControl.clear();
               },
@@ -286,7 +296,8 @@ class _DeviceSetupState extends State<DeviceSetup> {
     }
 
     final connectConfirmChar = _services[0].characteristics.lastWhere((c) => c.uuid.str == "0005");
-    final tokenEntryChar = _services[0].characteristics.lastWhere((c) => c.uuid.str == "0003");
+    final tokenEntryChar = _services[0].characteristics.lastWhere((c) => c.uuid.str == "0002");
+    final authConfirmChar = _services[0].characteristics.lastWhere((c) => c.uuid.str == "0003");
     await connectConfirmChar.setNotifyValue(true);
     _confirmSub = connectConfirmChar.onValueReceived.listen((List<int> connectVal) {
       try {
@@ -297,7 +308,7 @@ class _DeviceSetupState extends State<DeviceSetup> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => SetDeviceName(tokenEntryChar: tokenEntryChar, device: widget.device),
+            builder: (context) => SetDeviceName(tokenEntryChar: tokenEntryChar, authConfirmChar: authConfirmChar, device: widget.device),
           )
         ).then((_) {
           if (widget.device.isConnected) {
@@ -318,6 +329,8 @@ class _DeviceSetupState extends State<DeviceSetup> {
   }
 
   Future refreshWifiList() async{
+    if (refreshing) return;
+    refreshing = true;
     final ssidRefreshChar = _services[0].characteristics.lastWhere((c) => c.uuid.str == "0004");
     setState(() {
       wifiList = null;

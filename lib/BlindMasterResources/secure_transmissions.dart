@@ -8,7 +8,7 @@ import 'package:socket_io_client/socket_io_client.dart' as IO;
 String local = Platform.isAndroid ? '10.0.2.2' : 'localhost';
 String fromDevice = '192.168.1.190';
 
-String host = local;
+String host = fromDevice;
 int port = 3000;
 String socketString = "$scheme://$host:$port";
 String scheme = 'http';

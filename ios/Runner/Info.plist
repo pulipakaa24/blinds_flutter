@@ -54,7 +54,13 @@
     <key>NSAllowsLocalNetworking</key>
     <true/>
   </dict>
+
   <key>NSLocalNetworkUsageDescription</key>
-  <string>This app uses the local network for debugging and development.</string>
+  <string>Allow the app to find and connect to the Dart VM for debugging purposes.</string>
+
+  <key>NSBonjourServices</key>
+  <array>
+    <string>_dartvm._tcp</string>
+  </array>
 </dict>
 </plist>

@@ -123,7 +123,8 @@ class _AddDeviceState extends State<AddDevice> {
   }
 
   Widget _buildScanResultTiles() {
-    final res = _scanResults.where((r) => r.advertisementData.advName == "BlindMaster Device" && r.rssi > -55);
+    // final res = _scanResults.where((r) => r.advertisementData.advName == "BlindMaster Device" && r.rssi > -55);
+    final res = _scanResults.where((r) => r.advertisementData.advName == "BlindMaster-C6");
     return (res.isNotEmpty) 
     ? ListView(
         children: [
