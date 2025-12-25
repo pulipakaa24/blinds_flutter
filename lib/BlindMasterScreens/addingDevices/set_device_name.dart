@@ -11,10 +11,17 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class SetDeviceName extends StatefulWidget {
-  const SetDeviceName({super.key, required this.tokenEntryChar, required this.authConfirmChar, required this.device});
+  const SetDeviceName({
+    super.key, 
+    required this.tokenEntryChar, 
+    required this.authConfirmChar, 
+    required this.device,
+    required this.maxPorts,
+  });
   final BluetoothCharacteristic tokenEntryChar;
   final BluetoothCharacteristic authConfirmChar;
   final BluetoothDevice device;
+  final int maxPorts;
 
   @override
   State<SetDeviceName> createState() => _SetDeviceNameState();
@@ -57,7 +64,10 @@ class _SetDeviceNameState extends State<SetDeviceName> {
   }
 
   Future addDevice(String name) async {
-    final payload = {'deviceName': name};
+    final payload = {
+      'deviceName': name,
+      'maxPorts': widget.maxPorts,
+    };
     String? token;
     try {
       final tokenResponse = await securePost(payload, 'add_device');

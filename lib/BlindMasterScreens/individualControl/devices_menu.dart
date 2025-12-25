@@ -4,6 +4,7 @@ import 'package:blind_master/BlindMasterResources/error_snackbar.dart';
 import 'package:blind_master/BlindMasterResources/secure_transmissions.dart';
 import 'package:blind_master/BlindMasterScreens/addingDevices/add_device.dart';
 import 'package:blind_master/BlindMasterScreens/individualControl/device_screen.dart';
+import 'package:blind_master/BlindMasterScreens/individualControl/peripheral_screen.dart';
 import 'package:flutter/material.dart';
 
 class DevicesMenu extends StatefulWidget {
@@ -32,9 +33,11 @@ class _DevicesMenuState extends State<DevicesMenu> {
         final body = json.decode(response.body) as Map<String, dynamic>;
         final names = body['devices'] as List;
         final ids = body['device_ids'] as List;
+        final maxPortsList = body['max_ports'] as List;
         devices = List.generate(names.length, (i) => {
           'id': ids[i],
           'name': names[i],
+          'max_ports': maxPortsList[i],
         });
       }
     } catch(e) {
@@ -103,13 +106,52 @@ class _DevicesMenuState extends State<DevicesMenu> {
                         leading: const Icon(Icons.blinds),
                         title: Text(device['name']),
                         trailing: const Icon(Icons.arrow_forward_ios_rounded),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => DeviceScreen(deviceId: device['id']),
-                            ),
-                          ).then((_) { getDevices(); });
+                        onTap: () async {
+                          final maxPorts = device['max_ports'] as int;
+                          if (maxPorts == 1) {
+                            // Single-port device (C6): Get the single peripheral and navigate directly
+                            try {
+                              final payload = {"deviceId": device['id']};
+                              final response = await secureGet('peripheral_list', queryParameters: payload);
+                              if (response != null && response.statusCode == 200) {
+                                final body = json.decode(response.body) as Map<String, dynamic>;
+                                final ids = body['peripheral_ids'] as List;
+                                final portNums = body['port_nums'] as List;
+                                if (ids.isNotEmpty && mounted) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => PeripheralScreen(
+                                        peripheralId: ids[0],
+                                        deviceId: device['id'],
+                                        peripheralNum: portNums[0],
+                                        deviceName: device['name'],
+                                      ),
+                                    ),
+                                  ).then((_) { getDevices(); });
+                                } else {
+                                  // No peripheral found, show error
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('No peripheral configured for this device'))
+                                    );
+                                  }
+                                }
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
+                              }
+                            }
+                          } else {
+                            // Multi-port device: Navigate to device screen
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => DeviceScreen(deviceId: device['id']),
+                              ),
+                            ).then((_) { getDevices(); });
+                          }
                         },
                       ),
                     ),

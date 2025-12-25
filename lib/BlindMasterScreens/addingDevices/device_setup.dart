@@ -46,6 +46,7 @@ class DeviceSetup extends StatefulWidget {
 class _DeviceSetupState extends State<DeviceSetup> {
   bool refreshing = false;
   List<BluetoothService> _services = [];
+  int maxPorts = 4; // Default to multi-port
 
   List<Map<String, dynamic>> networks = [];
 
@@ -60,6 +61,13 @@ class _DeviceSetupState extends State<DeviceSetup> {
 
   @override void initState() {
     super.initState();
+    // Detect device type from platform name
+    final deviceName = widget.device.platformName;
+    if (deviceName == "BlindMaster-C6") {
+      maxPorts = 1;
+    } else if (deviceName == "BlindMaster Device") {
+      maxPorts = 4;
+    }
     initSetup();
   }
 
@@ -308,7 +316,12 @@ class _DeviceSetupState extends State<DeviceSetup> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => SetDeviceName(tokenEntryChar: tokenEntryChar, authConfirmChar: authConfirmChar, device: widget.device),
+            builder: (context) => SetDeviceName(
+              tokenEntryChar: tokenEntryChar, 
+              authConfirmChar: authConfirmChar, 
+              device: widget.device,
+              maxPorts: maxPorts,
+            ),
           )
         ).then((_) {
           if (widget.device.isConnected) {
