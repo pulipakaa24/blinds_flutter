@@ -26,6 +26,8 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
   bool loaded = false;
   bool calibrated = false;
   bool calibrating = false;
+  bool deviceConnected = true; // Track device connection status
+  int calibrationStage = 0; // 0=not started, 1=tilt up, 2=tilt down
   double _blindPosition = 5.0;
   DateTime? lastSet;
   String lastSetMessage = "";
@@ -65,6 +67,32 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
       socket = await connectSocket();
       if (socket == null) throw Exception("Unsuccessful socket connection");
       socket?.on("success", (_) {
+        socket?.on("device_connected", (data) {
+          if (data is Map<String, dynamic>) {
+            if (data['deviceID'] == widget.deviceId) {
+              if (!mounted) return;
+              setState(() {
+                deviceConnected = true;
+              });
+            }
+          }
+        });
+        
+        socket?.on("device_disconnected", (data) {
+          if (data is Map<String, dynamic>) {
+            if (data['deviceID'] == widget.deviceId) {
+              if (!mounted) return;
+              setState(() {
+                deviceConnected = false;
+                // Reset calibration if it was in progress
+                if (calibrating) {
+                  calibrationStage = 0;
+                }
+              });
+            }
+          }
+        });
+        
         socket?.on("posUpdates", (list) {
           for (var update in list) {
             if (update is Map<String, dynamic>) {
@@ -77,6 +105,7 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
             }
           }
         });
+        
         socket?.on("calib", (periphData) {
           if (periphData is Map<String, dynamic>) {
             if (periphData['periphID'] == widget.peripheralId) {
@@ -84,10 +113,52 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
               setState(() {
                 calibrating = true;
                 calibrated = false;
+                calibrationStage = 0; // Waiting for device to be ready
               });
             }
           }
         });
+        
+        socket?.on("calib_error", (errorData) {
+          if (errorData is Map<String, dynamic>) {
+            if (errorData['periphID'] == widget.peripheralId) {
+              if (!mounted) return;
+              setState(() {
+                calibrating = false;
+                calibrationStage = 0;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(errorData['message'] ?? 'Calibration error'),
+                  backgroundColor: Colors.red,
+                )
+              );
+            }
+          }
+        });
+        
+        socket?.on("calib_stage1_ready", (periphData) {
+          if (periphData is Map<String, dynamic>) {
+            if (periphData['periphID'] == widget.peripheralId) {
+              if (!mounted) return;
+              setState(() {
+                calibrationStage = 1; // Device ready for tilt up
+              });
+            }
+          }
+        });
+        
+        socket?.on("calib_stage2_ready", (periphData) {
+          if (periphData is Map<String, dynamic>) {
+            if (periphData['periphID'] == widget.peripheralId) {
+              if (!mounted) return;
+              setState(() {
+                calibrationStage = 2; // Device ready for tilt down
+              });
+            }
+          }
+        });
+        
         socket?.on("calib_done", (periphData) {
           if (periphData is Map<String, dynamic>) {
             if (periphData['periphID'] == widget.peripheralId) {
@@ -95,6 +166,7 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
               setState(() {
                 calibrating = false;
                 calibrated = true;
+                calibrationStage = 0;
               });
             }
           }
@@ -106,6 +178,17 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
   }
 
   Future<void> calibrate() async {
+    if (!deviceConnected) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Device must be connected to calibrate'),
+          backgroundColor: Colors.orange,
+        )
+      );
+      return;
+    }
+    
     try {
       final payload = {
         'periphId': widget.peripheralId
@@ -131,14 +214,44 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
       
       if (response == null) throw Exception("auth error");
       if (response.statusCode != 202) throw Exception("Server Error");
+      
+      // Only update state if cancel succeeded
+      if (!mounted) return;
       setState(() {
         calibrated = false;
         calibrating = false;
+        calibrationStage = 0;
       });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
     }
+  }
+
+  Future<void> completeStage1() async {
+    // User confirms they've tilted blinds all the way up
+    // Tell device to proceed to stage 2
+    socket?.emit("user_stage1_complete", {
+      "periphID": widget.peripheralId,
+      "periphNum": widget.peripheralNum,
+      "deviceID": widget.deviceId
+    });
+    setState(() {
+      calibrationStage = 0; // Wait for device acknowledgment
+    });
+  }
+
+  Future<void> completeStage2() async {
+    // User confirms they've tilted blinds all the way down
+    // Tell device calibration is complete
+    socket?.emit("user_stage2_complete", {
+      "periphID": widget.peripheralId,
+      "periphNum": widget.peripheralNum,
+      "deviceID": widget.deviceId
+    });
+    setState(() {
+      calibrationStage = 0; // Wait for device acknowledgment
+    });
   }
 
   Future<void> getName() async {
@@ -151,6 +264,23 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
       if (response.statusCode != 200) throw Exception("Server Error");
       final body = json.decode(response.body);
       setState(() => peripheralName = body['name']);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
+    }
+  }
+
+  Future<void> checkDeviceConnection() async {
+    try {
+      final payload = {
+        'deviceId': widget.deviceId
+      };
+      final response = await secureGet('device_connection_status', queryParameters: payload);
+      if (response == null) throw Exception("auth error");
+      if (response.statusCode != 200) throw Exception("Server Error");
+      final body = json.decode(response.body);
+      if (!mounted) return;
+      setState(() => deviceConnected = body['connected']);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
@@ -204,6 +334,7 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
 
   Future initAll() async{
     getName();
+    checkDeviceConnection();
     loop();
   }
 
@@ -340,6 +471,34 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
         ),
         backgroundColor: Theme.of(context).primaryColorLight,
         foregroundColor: Colors.white,
+        bottom: !deviceConnected ? PreferredSize(
+          preferredSize: const Size.fromHeight(48.0),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            color: Colors.orange.shade700,
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.wifi_off,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Device Disconnected',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ) : null,
       ),
 
       body: loaded 
@@ -357,18 +516,64 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
                   Container(
                     padding: EdgeInsets.all(20),
                     child: Text(
-                      "Calibrating... Check again soon."
+                      calibrationStage == 0
+                        ? "Preparing device for calibration..."
+                        : calibrationStage == 1
+                          ? "Tilt the blinds ALL THE WAY UP"
+                          : "Tilt the blinds ALL THE WAY DOWN",
+                      style: GoogleFonts.aBeeZee(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
-                  ElevatedButton(
-                    onPressed: cancelCalib,
-                    child: const Text(
-                      "Cancel",
-                      style: TextStyle(
-                        color: Colors.red
-                      ),
+                  if (calibrationStage == 0)
+                    CircularProgressIndicator(
+                      color: Theme.of(context).primaryColorLight,
+                    ),
+                  SizedBox(height: 20),
+                  if (calibrationStage == 1 || calibrationStage == 2)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton(
+                          onPressed: calibrationStage == 1 ? completeStage1 : completeStage2,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                          ),
+                          child: const Text(
+                            "Complete",
+                            style: TextStyle(fontSize: 16),
+                          )
+                        ),
+                        SizedBox(width: 20),
+                        ElevatedButton(
+                          onPressed: cancelCalib,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                          ),
+                          child: const Text(
+                            "Cancel",
+                            style: TextStyle(fontSize: 16),
+                          )
+                        ),
+                      ],
                     )
-                  )
+                  else
+                    ElevatedButton(
+                      onPressed: cancelCalib,
+                      child: const Text(
+                        "Cancel",
+                        style: TextStyle(
+                          color: Colors.red
+                        ),
+                      )
+                    )
                 ]
               )
             )
@@ -488,7 +693,10 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
                 ),
               ),
               ElevatedButton(
-                onPressed: calibrate,
+                onPressed: deviceConnected ? calibrate : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: deviceConnected ? null : Colors.grey,
+                ),
                 child: const Text("Calibrate")
               )
             ],
@@ -512,9 +720,9 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
             FloatingActionButton(
               heroTag: "recalibrate",
               tooltip: "Recalibrate Peripheral",
-              onPressed: recalibrate,
-              foregroundColor: Theme.of(context).highlightColor,
-              backgroundColor: Theme.of(context).primaryColorDark,
+              onPressed: deviceConnected ? recalibrate : null,
+              foregroundColor: deviceConnected ? Theme.of(context).highlightColor : Colors.grey.shade400,
+              backgroundColor: deviceConnected ? Theme.of(context).primaryColorDark : Colors.grey.shade300,
               child: Icon(Icons.swap_vert),
             ),
           ],
