@@ -295,7 +295,10 @@ class _DayTimePickerState extends State<DayTimePicker> {
                     
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('A schedule already exists at this time for this blind'),
+                        content: Text(
+                          'A schedule already exists at this time for this blind',
+                          textAlign: TextAlign.center,
+                        ),
                         backgroundColor: Colors.orange,
                         duration: Duration(seconds: 4),
                       )
@@ -312,7 +315,10 @@ class _DayTimePickerState extends State<DayTimePicker> {
                   
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(widget.isEditing ? 'Schedule updated successfully' : 'Schedule added successfully'),
+                      content: Text(
+                        widget.isEditing ? 'Schedule updated successfully' : 'Schedule added successfully',
+                        textAlign: TextAlign.center,
+                      ),
                       backgroundColor: Colors.green,
                     )
                   );

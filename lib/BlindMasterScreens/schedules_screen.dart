@@ -132,7 +132,10 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Schedule deleted successfully'),
+                            content: Text(
+                              'Schedule deleted successfully',
+                              textAlign: TextAlign.center,
+                            ),
                             backgroundColor: Colors.green,
                           )
                         );
