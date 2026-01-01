@@ -307,14 +307,20 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
         }
         else {
           getImage();
-          final nowUtc = DateTime.now().toUtc();
-          final lastSetUtc = DateTime.parse(body['last_set']);
-          final Duration difference = nowUtc.difference(lastSetUtc);
-          if (!lastSetUtc.isUtc) throw Exception("Why isn't the server giving UTC?");
-          final diffDays = difference.inDays > 0;
-          final diffHours = difference.inHours > 0;
-          final diffMins = difference.inMinutes > 0;
-          lastSetMessage = "Last set ${diffDays ? '${difference.inDays.toString()} days' : diffHours ? '${difference.inHours.toString()} hours' : diffMins ? '${difference.inMinutes.toString()} minutes' : '${difference.inSeconds.toString()} seconds'} ago";
+          
+          if (body['last_set'] != null) {
+            final nowUtc = DateTime.now().toUtc();
+            final lastSetUtc = DateTime.parse(body['last_set']);
+            final Duration difference = nowUtc.difference(lastSetUtc);
+            if (!lastSetUtc.isUtc) throw Exception("Why isn't the server giving UTC?");
+            final diffDays = difference.inDays > 0;
+            final diffHours = difference.inHours > 0;
+            final diffMins = difference.inMinutes > 0;
+            lastSetMessage = "Last set ${diffDays ? '${difference.inDays.toString()} days' : diffHours ? '${difference.inHours.toString()} hours' : diffMins ? '${difference.inMinutes.toString()} minutes' : '${difference.inSeconds.toString()} seconds'} ago";
+          } else {
+            lastSetMessage = "Never set";
+          }
+          
           _blindPosition = (body['last_pos'] as int).toDouble();
 
           calibrated = true;
@@ -607,23 +613,31 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
 
                       Align(
                         alignment: Alignment.center,
-                        child: Container(
-                          margin: EdgeInsets.only(top: MediaQuery.of(context).size.width * 0.05),
-                          height: MediaQuery.of(context).size.width * 0.68,
-                          width: MediaQuery.of(context).size.width * 0.7,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: List.generate(10, (index) {
-                              return AnimatedContainer(
-                                duration: const Duration(milliseconds: 300),
-                                height: _blindPosition < 5 ? 
-                                  5.4 * (5 - _blindPosition)
-                                  : 5.4 * (_blindPosition - 5),
-                                width: MediaQuery.of(context).size.width * 0.65, // example
-                                color: const Color.fromARGB(255, 121, 85, 72),
-                              );
-                            }),
-                          ),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final containerHeight = MediaQuery.of(context).size.width * 0.68;
+                            final maxSlatHeight = containerHeight / 10;
+                            final slatHeight = _blindPosition < 5 
+                              ? maxSlatHeight * (5 - _blindPosition) / 5
+                              : maxSlatHeight * (_blindPosition - 5) / 5;
+                            
+                            return Container(
+                              margin: EdgeInsets.only(top: MediaQuery.of(context).size.width * 0.05),
+                              height: containerHeight,
+                              width: MediaQuery.of(context).size.width * 0.7,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: List.generate(10, (index) {
+                                  return AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
+                                    height: slatHeight,
+                                    width: MediaQuery.of(context).size.width * 0.65,
+                                    color: const Color.fromARGB(255, 121, 85, 72),
+                                  );
+                                }),
+                              ),
+                            );
+                          }
                         )
                       )
                     ],

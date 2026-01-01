@@ -5,10 +5,16 @@ SnackBar errorSnackbar(
   Color backgroundColor = const Color.fromARGB(255, 196, 26, 14),
   Duration duration = const Duration(seconds: 3),
 }) {
+  final errorText = e is String 
+    ? e 
+    : (e.toString().contains(':') 
+        ? e.toString().substring(e.toString().indexOf(':') + 1).trim()
+        : e.toString());
+  
   return SnackBar(
     backgroundColor: Color.fromARGB(255, 196, 26, 14),
     content: Text(
-      e.toString().replaceFirst(RegExp(r'^[^:]+:\s*'), ''),
+      errorText,
       textAlign: TextAlign.center,
       style: TextStyle(
         fontSize: 15,

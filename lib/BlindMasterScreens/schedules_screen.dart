@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:blind_master/BlindMasterResources/error_snackbar.dart';
 import 'package:blind_master/BlindMasterResources/secure_transmissions.dart';
 import 'package:blind_master/BlindMasterScreens/day_time_picker.dart';
+import 'package:blind_master/main.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -28,10 +29,27 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     getSchedules();
   }
 
+  String translate(int pos) {
+    if (pos < 2) {
+      return "Close (down)";
+    } else if (pos < 5) {
+      return "Open (down)";
+    }
+    else if (pos == 5) {
+      return "Open";
+    }
+    else if (pos < 9) {
+      return "Open (up)";
+    }
+    else {
+      return "Close (up)";
+    }
+  }
+
   Future getSchedules() async {
     try{
       final payload = {
-        "periphId": widget.deviceId
+        "periphId": widget.peripheralId
       };
       final response = await securePost(payload, 'periph_schedule_list');
       if (response == null) throw Exception("no response!");
@@ -100,23 +118,66 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                         ),
                       );
                     },
-                    onDismissed: (direction) {
-                      // TODO Actually delete the schedule
-                      // deleteDevice(device['id'], i);
+                    onDismissed: (direction) async {
+                      final scheduleId = schedule['id'].toString();
+                      try {
+                        final payload = {'jobId': scheduleId};
+                        final response = await securePost(payload, 'delete_schedule');
+                        
+                        if (response == null) throw Exception("Auth Error");
+                        if (response.statusCode != 200) {
+                          throw Exception("Failed to delete schedule");
+                        }
+                        
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Schedule deleted successfully'),
+                            backgroundColor: Colors.green,
+                          )
+                        );
+                      } catch (e) {
+                        if (mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
+                      } finally {
+                        // Refresh the list regardless of success/failure
+                        if (mounted) getSchedules();
+                      }
                     },
                     child: Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.blinds),
-                        title: Text("${schedule['pos']} every ${schedule['schedule']['daysOfWeek']} at ${schedule['schedule']['hours']}:${schedule['schedule']['minutes']}"),
-                        trailing: const Icon(Icons.arrow_forward_ios_rounded),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => Placeholder(),
-                              // TODO open popup for schedule setter.
-                            ),
-                          ).then((_) { getSchedules(); });
+                      child: Builder(
+                        builder: (context) {
+                          final pos = translate(schedule['pos']);
+                          final days = (schedule['schedule']['daysOfWeek'] as List)
+                              .map((d) => DaysOfWeek.values[d].name)
+                              .join(', ');
+                          final hour24 = schedule['schedule']['hours'][0] as int;
+                          final minute = schedule['schedule']['minutes'][0].toString().padLeft(2, '0');
+                          final period = hour24 >= 12 ? 'PM' : 'AM';
+                          final hour12 = hour24 == 0 ? 12 : (hour24 > 12 ? hour24 - 12 : hour24);
+                          
+                          return ListTile(
+                            leading: const Icon(Icons.blinds),
+                            title: Text("$pos at $hour12:$minute $period"),
+                            subtitle: Text(days),
+                            trailing: const Icon(Icons.arrow_forward_ios_rounded),
+                            onTap: () {
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext dialogContext) {
+                                  return DayTimePicker(
+                                    defaultTime: TimeOfDay(hour: 12, minute: 0),
+                                    sendSchedule: sendSchedule,
+                                    peripheralId: widget.peripheralId,
+                                    peripheralNum: widget.peripheralNum,
+                                    deviceId: widget.deviceId,
+                                    existingSchedule: schedule,
+                                    scheduleId: schedule['id'].toString(),
+                                  );
+                                }
+                              ).then((_) { getSchedules(); });
+                            },
+                          );
                         },
                       ),
                     ),
@@ -136,9 +197,15 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) { // Use dialogContext for navigation within the dialog
-        return DayTimePicker(defaultTime: TimeOfDay(hour: 12, minute: 0), sendSchedule: sendSchedule);
+        return DayTimePicker(
+          defaultTime: TimeOfDay(hour: 12, minute: 0),
+          sendSchedule: sendSchedule,
+          peripheralId: widget.peripheralId,
+          peripheralNum: widget.peripheralNum,
+          deviceId: widget.deviceId,
+        );
       }
-    );
+    ).then((_) { getSchedules(); });
   }
 
   @override
