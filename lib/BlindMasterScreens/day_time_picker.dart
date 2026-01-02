@@ -85,7 +85,7 @@ class _DayTimePickerState extends State<DayTimePicker> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(
-        'New Schedule',
+        (widget.isEditing) ? 'Edit Schedule' : 'New Schedule',
         style: GoogleFonts.aBeeZee(),
       ),
       content: Column(

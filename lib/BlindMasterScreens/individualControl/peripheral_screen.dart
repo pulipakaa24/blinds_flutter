@@ -168,6 +168,8 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
                 calibrated = true;
                 calibrationStage = 0;
               });
+              // Fetch updated peripheral data after calibration completes
+              fetchState();
             }
           }
         });
@@ -198,6 +200,7 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
       
       if (response == null) throw Exception("auth error");
       if (response.statusCode != 202) throw Exception("Server Error");
+      calibrated = false;
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
@@ -287,7 +290,7 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
     }
   }
 
-  Future loop() async{
+  Future fetchState() async{
     try {
       final payload = {
         'periphId': widget.peripheralId
@@ -341,7 +344,7 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
   Future initAll() async{
     getName();
     checkDeviceConnection();
-    loop();
+    fetchState();
   }
 
   void rename() {
@@ -734,9 +737,9 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
             FloatingActionButton(
               heroTag: "recalibrate",
               tooltip: "Recalibrate Peripheral",
-              onPressed: deviceConnected ? recalibrate : null,
-              foregroundColor: deviceConnected ? Theme.of(context).highlightColor : Colors.grey.shade400,
-              backgroundColor: deviceConnected ? Theme.of(context).primaryColorDark : Colors.grey.shade300,
+              onPressed: (deviceConnected && calibrated) ? recalibrate : null,
+              foregroundColor: (deviceConnected && calibrated) ? Theme.of(context).highlightColor : Colors.grey.shade400,
+              backgroundColor: (deviceConnected && calibrated) ? Theme.of(context).primaryColorDark : Colors.grey.shade300,
               child: Icon(Icons.swap_vert),
             ),
           ],
