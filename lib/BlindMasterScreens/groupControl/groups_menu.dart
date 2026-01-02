@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:blind_master/BlindMasterScreens/groupControl/create_group_dialog.dart';
+import 'package:blind_master/BlindMasterScreens/groupControl/group_screen.dart';
 import 'package:blind_master/BlindMasterResources/secure_transmissions.dart';
 import 'package:flutter/material.dart';
 
@@ -144,7 +145,15 @@ class _GroupsMenuState extends State<GroupsMenu> {
                         title: Text(group['name']),
                         trailing: const Icon(Icons.arrow_forward_ios_rounded),
                         onTap: () {
-                          // TODO: Navigate to group details screen
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => GroupScreen(
+                                groupId: group['id'],
+                                groupName: group['name'],
+                              ),
+                            ),
+                          );
                         },
                       ),
                     ),
