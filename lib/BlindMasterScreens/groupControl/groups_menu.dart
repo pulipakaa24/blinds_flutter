@@ -153,7 +153,10 @@ class _GroupsMenuState extends State<GroupsMenu> {
                                 groupName: group['name'],
                               ),
                             ),
-                          );
+                          ).then((_) {
+                            // Refresh groups list when returning from group screen
+                            getGroups();
+                          });
                         },
                       ),
                     ),

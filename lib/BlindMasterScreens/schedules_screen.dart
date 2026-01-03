@@ -8,13 +8,26 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class SchedulesScreen extends StatefulWidget {
-  const SchedulesScreen({super.key, required this.peripheralId, required this.deviceId,
-  required this.peripheralNum, required this.deviceName, required this.periphName});
-  final int peripheralId;
-  final int peripheralNum;
-  final int deviceId;
-  final String deviceName;
-  final String periphName;
+  const SchedulesScreen({
+    super.key, 
+    this.peripheralId, 
+    this.deviceId,
+    this.peripheralNum, 
+    this.deviceName, 
+    this.periphName,
+    this.groupId,
+    this.groupName,
+  });
+  final int? peripheralId;
+  final int? peripheralNum;
+  final int? deviceId;
+  final String? deviceName;
+  final String? periphName;
+  final int? groupId;
+  final String? groupName;
+  
+  bool get isGroupMode => groupId != null;
+  
   @override
   State<SchedulesScreen> createState() => _SchedulesScreenState();
 }
@@ -48,10 +61,12 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
 
   Future getSchedules() async {
     try{
-      final payload = {
-        "periphId": widget.peripheralId
-      };
-      final response = await securePost(payload, 'periph_schedule_list');
+      final payload = widget.isGroupMode
+        ? {"groupId": widget.groupId}
+        : {"periphId": widget.peripheralId};
+      
+      final endpoint = widget.isGroupMode ? 'group_schedule_list' : 'periph_schedule_list';
+      final response = await securePost(payload, endpoint);
       if (response == null) throw Exception("no response!");
 
       if (response.statusCode == 200) {
@@ -122,7 +137,8 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                       final scheduleId = schedule['id'].toString();
                       try {
                         final payload = {'jobId': scheduleId};
-                        final response = await securePost(payload, 'delete_schedule');
+                        final endpoint = widget.isGroupMode ? 'delete_group_schedule' : 'delete_schedule';
+                        final response = await securePost(payload, endpoint);
                         
                         if (response == null) throw Exception("Auth Error");
                         if (response.statusCode != 200) {
@@ -174,6 +190,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                                     peripheralId: widget.peripheralId,
                                     peripheralNum: widget.peripheralNum,
                                     deviceId: widget.deviceId,
+                                    groupId: widget.groupId,
                                     existingSchedule: schedule,
                                     scheduleId: schedule['id'].toString(),
                                   );
@@ -199,13 +216,14 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
   void addSchedule() {
     showDialog(
       context: context,
-      builder: (BuildContext dialogContext) { // Use dialogContext for navigation within the dialog
+      builder: (BuildContext dialogContext) {
         return DayTimePicker(
           defaultTime: TimeOfDay(hour: 12, minute: 0),
           sendSchedule: sendSchedule,
           peripheralId: widget.peripheralId,
           peripheralNum: widget.peripheralNum,
           deviceId: widget.deviceId,
+          groupId: widget.groupId,
         );
       }
     ).then((_) { getSchedules(); });
@@ -216,7 +234,9 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          "Schedules: ${widget.deviceName} - ${widget.periphName}",
+          widget.isGroupMode 
+            ? "Group Schedules: ${widget.groupName}"
+            : "Schedules: ${widget.deviceName} - ${widget.periphName}",
           style: GoogleFonts.aBeeZee(),
         ),
         backgroundColor: Theme.of(context).primaryColorLight,

@@ -9,22 +9,25 @@ class DayTimePicker extends StatefulWidget {
     super.key,
     required this.defaultTime,
     required this.sendSchedule,
-    required this.peripheralId,
-    required this.peripheralNum,
-    required this.deviceId,
+    this.peripheralId,
+    this.peripheralNum,
+    this.deviceId,
+    this.groupId,
     this.existingSchedule,
     this.scheduleId,
   });
 
   final TimeOfDay defaultTime;
   final void Function(TimeOfDay) sendSchedule;
-  final int peripheralId;
-  final int peripheralNum;
-  final int deviceId;
+  final int? peripheralId;
+  final int? peripheralNum;
+  final int? deviceId;
+  final int? groupId;
   final Map<String, dynamic>? existingSchedule;
   final String? scheduleId;
   
   bool get isEditing => existingSchedule != null && scheduleId != null;
+  bool get isGroupMode => groupId != null;
   
   @override
   State<DayTimePicker> createState() => _DayTimePickerState();
@@ -266,24 +269,45 @@ class _DayTimePickerState extends State<DayTimePicker> {
                   
                   final timeToUse = scheduleTime ?? widget.defaultTime;
                   
-                  final payload = {
-                    'periphId': widget.peripheralId,
-                    'periphNum': widget.peripheralNum,
-                    'deviceId': widget.deviceId,
-                    'newPos': _blindPosition.toInt(),
-                    'time': {
-                      'hour': timeToUse.hour,
-                      'minute': timeToUse.minute,
-                    },
-                    'daysOfWeek': daysOfWeek,
-                  };
                   
-                  // Add jobId if editing
-                  if (widget.isEditing) {
-                    payload['jobId'] = widget.scheduleId!;
+                  Map<String, dynamic> payload;
+                  String endpoint;
+                  
+                  if (widget.isGroupMode) {
+                    payload = {
+                      'groupId': widget.groupId,
+                      'newPos': _blindPosition.toInt(),
+                      'time': {
+                        'hour': timeToUse.hour,
+                        'minute': timeToUse.minute,
+                      },
+                      'daysOfWeek': daysOfWeek,
+                    };
+                    
+                    if (widget.isEditing) {
+                      payload['jobId'] = widget.scheduleId!;
+                    }
+                    
+                    endpoint = widget.isEditing ? 'update_group_schedule' : 'add_group_schedule';
+                  } else {
+                    payload = {
+                      'periphId': widget.peripheralId,
+                      'periphNum': widget.peripheralNum,
+                      'deviceId': widget.deviceId,
+                      'newPos': _blindPosition.toInt(),
+                      'time': {
+                        'hour': timeToUse.hour,
+                        'minute': timeToUse.minute,
+                      },
+                      'daysOfWeek': daysOfWeek,
+                    };
+                    
+                    if (widget.isEditing) {
+                      payload['jobId'] = widget.scheduleId!;
+                    }
+                    
+                    endpoint = widget.isEditing ? 'update_schedule' : 'add_schedule';
                   }
-                  
-                  final endpoint = widget.isEditing ? 'update_schedule' : 'add_schedule';
                   final response = await securePost(payload, endpoint);
                   
                   if (response == null) throw Exception("Auth Error");

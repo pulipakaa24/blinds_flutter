@@ -1,8 +1,12 @@
 import 'dart:convert';
 
+import 'package:blind_master/BlindMasterResources/blind_control_widget.dart';
 import 'package:blind_master/BlindMasterResources/blindmaster_progress_indicator.dart';
 import 'package:blind_master/BlindMasterResources/error_snackbar.dart';
 import 'package:blind_master/BlindMasterResources/secure_transmissions.dart';
+import 'package:blind_master/BlindMasterResources/text_inputs.dart';
+import 'package:blind_master/BlindMasterScreens/groupControl/edit_group_dialog.dart';
+import 'package:blind_master/BlindMasterScreens/schedules_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -21,6 +25,15 @@ class _GroupScreenState extends State<GroupScreen> {
   double _blindPosition = 5.0;
   List<Map<String, dynamic>> peripherals = [];
   bool allCalibrated = false;
+  String currentGroupName = "";
+  
+  final _groupRenameController = TextEditingController();
+
+  @override
+  void dispose() {
+    _groupRenameController.dispose();
+    super.dispose();
+  }
 
   void getImage() {
     final hour = DateTime.now().hour;
@@ -39,6 +52,7 @@ class _GroupScreenState extends State<GroupScreen> {
   @override
   void initState() {
     super.initState();
+    currentGroupName = widget.groupName;
     initAll();
   }
 
@@ -74,6 +88,95 @@ class _GroupScreenState extends State<GroupScreen> {
     await getGroupDetails();
   }
 
+  void rename() {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text(
+            "Rename Group",
+            style: GoogleFonts.aBeeZee(),
+          ),
+          content: BlindMasterMainInput("New Group Name", controller: _groupRenameController),
+          actions: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                  },
+                  child: const Text(
+                    "Cancel",
+                    style: TextStyle(
+                      color: Colors.red
+                    ),
+                  )
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    updateGroupName(_groupRenameController.text, widget.groupId);
+                    Navigator.of(dialogContext).pop();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColorDark,
+                    foregroundColor: Theme.of(context).highlightColor,
+                  ),
+                  child: const Text("Rename")
+                )
+              ]
+            )
+          ],
+        );
+      }
+    );
+  }
+
+  Future updateGroupName(String name, int id) async {
+    try {
+      if (name.isEmpty) throw Exception("New name cannot be empty!");
+      final payload = {
+        'groupId': id,
+        'newName': name,
+      };
+      final response = await securePost(payload, 'rename_group');
+      if (response == null) throw Exception("Auth Error");
+      if (response.statusCode != 204) {
+        if (response.statusCode == 409) throw Exception("Choose a unique name!");
+        throw Exception("Server Error");
+      }
+      if (!mounted) return;
+      setState(() {
+        currentGroupName = name;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Group renamed successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
+    }
+  }
+
+  void editMembers() {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return EditGroupDialog(
+          groupId: widget.groupId,
+          groupName: currentGroupName,
+          currentPeripheralIds: peripherals.map((p) => p['peripheral_id'] as int).toList(),
+        );
+      }
+    ).then((_) {
+      // Refresh group details after editing
+      getGroupDetails();
+    });
+  }
+
   Future updateGroupPosition() async {
     try {
       final payload = {
@@ -97,7 +200,7 @@ class _GroupScreenState extends State<GroupScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          widget.groupName,
+          currentGroupName,
           style: GoogleFonts.aBeeZee(),
         ),
         backgroundColor: Theme.of(context).primaryColorLight,
@@ -107,84 +210,15 @@ class _GroupScreenState extends State<GroupScreen> {
       ? (allCalibrated
       ? Column(
         children: [
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.5,
-            child: Container(
-              padding: EdgeInsets.fromLTRB(0, 20, 0, 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.15,
-                  ),
-                  Stack(
-                    children: [
-                      // Background image
-                      Align(
-                        alignment: Alignment.center,
-                        child: Image.asset(
-                          imagePath,
-                          width: MediaQuery.of(context).size.width * 0.7,
-                        ),
-                      ),
-
-                      Align(
-                        alignment: Alignment.center,
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            final containerHeight = MediaQuery.of(context).size.width * 0.68;
-                            final maxSlatHeight = containerHeight / 10;
-                            final slatHeight = _blindPosition < 5 
-                              ? maxSlatHeight * (5 - _blindPosition) / 5
-                              : maxSlatHeight * (_blindPosition - 5) / 5;
-                            
-                            return Container(
-                              margin: EdgeInsets.only(top: MediaQuery.of(context).size.width * 0.05),
-                              height: containerHeight,
-                              width: MediaQuery.of(context).size.width * 0.7,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: List.generate(10, (index) {
-                                  return AnimatedContainer(
-                                    duration: const Duration(milliseconds: 300),
-                                    height: slatHeight,
-                                    width: MediaQuery.of(context).size.width * 0.65,
-                                    color: const Color.fromARGB(255, 121, 85, 72),
-                                  );
-                                }),
-                              ),
-                            );
-                          }
-                        )
-                      )
-                    ],
-                  ),
-                  // Slider on the side
-                  Expanded(
-                    child: Center( 
-                      child: RotatedBox(
-                        quarterTurns: -1,
-                        child: Slider(
-                          value: _blindPosition,
-                          activeColor: Theme.of(context).primaryColorDark,
-                          thumbColor: Theme.of(context).primaryColorLight,
-                          inactiveColor: Theme.of(context).primaryColorDark,
-                          min: 0,
-                          max: 10,
-                          divisions: 10,
-                          onChanged: (value) {
-                            setState(() {
-                              _blindPosition = value;
-                              updateGroupPosition();
-                            });
-                          },
-                        ),
-                      ),
-                    )
-                  )
-                ],
-              ),
-            )
+          BlindControlWidget(
+            imagePath: imagePath,
+            blindPosition: _blindPosition,
+            onPositionChanged: (value) {
+              setState(() {
+                _blindPosition = value;
+                updateGroupPosition();
+              });
+            },
           ),
           Container(
             padding: EdgeInsets.all(25),
@@ -196,9 +230,14 @@ class _GroupScreenState extends State<GroupScreen> {
             padding: EdgeInsets.all(10),
             child: ElevatedButton(
               onPressed: () {
-                // TODO: Navigate to group schedules screen
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Group schedules coming soon!'))
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SchedulesScreen(
+                      groupId: widget.groupId,
+                      groupName: currentGroupName,
+                    )
+                  )
                 );
               },
               child: Text(
@@ -245,28 +284,20 @@ class _GroupScreenState extends State<GroupScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             FloatingActionButton(
-              heroTag: "placeholder1",
-              tooltip: "Placeholder",
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Feature coming soon!'))
-                );
-              },
+              heroTag: "rename",
+              tooltip: "Rename Group",
+              onPressed: rename,
               foregroundColor: Theme.of(context).highlightColor,
               backgroundColor: Theme.of(context).primaryColorDark,
-              child: Icon(Icons.settings),
+              child: Icon(Icons.drive_file_rename_outline_sharp),
             ),
             FloatingActionButton(
-              heroTag: "placeholder2",
-              tooltip: "Placeholder",
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Feature coming soon!'))
-                );
-              },
+              heroTag: "editMembers",
+              tooltip: "Edit Group Members",
+              onPressed: editMembers,
               foregroundColor: Theme.of(context).highlightColor,
               backgroundColor: Theme.of(context).primaryColorDark,
-              child: Icon(Icons.tune),
+              child: Icon(Icons.format_list_bulleted_sharp),
             ),
           ],
         ),
