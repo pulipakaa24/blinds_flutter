@@ -8,21 +8,22 @@ import 'package:socket_io_client/socket_io_client.dart' as IO;
 String local = Platform.isAndroid ? '10.0.2.2' : 'localhost';
 String fromDevice = '192.168.1.190';
 
+String scheme = 'http';
 String host = local;
 int port = 3000;
-String socketString = "$scheme://$host:$port";
-String scheme = 'http';
+String priv = "$scheme://$host:$port";
+
+String pub = "https://wahwa.com";
+
+String socketString = pub;
 
 Future<http.Response?> secureGet(String path, {Map<String, dynamic>? queryParameters}) async{
   final storage = FlutterSecureStorage();
   final token = await storage.read(key: 'token');
   if (token == null) return null;
 
-  final uri = Uri(
-    scheme: scheme,
-    host: host,
-    port: port,      // your host
-    path: path,               // your path
+  final uri = Uri.parse(socketString).replace(
+    path: path,
     queryParameters: queryParameters?.map((key, value) => MapEntry(key, value.toString())),
   );
 
@@ -42,11 +43,8 @@ Future<http.Response?> securePost(Map<String, dynamic> payload, String path) asy
   final token = await storage.read(key: 'token');
   if (token == null) return null;
 
-  final uri = Uri(
-    scheme: scheme,
-    host: host,
-    port: port,      // your host
-    path: path,               // your path
+  final uri = Uri.parse(socketString).replace(
+    path: path,
   );
 
   return await http.post(
@@ -61,11 +59,8 @@ Future<http.Response?> securePost(Map<String, dynamic> payload, String path) asy
 }
 
 Future<http.Response> regularGet(String path) async {
-  final uri = Uri(
-    scheme: scheme,
-    host: host,
-    port: port,      // your host
-    path: path,               // your path
+  final uri = Uri.parse(socketString).replace(
+    path: path,
   );
 
   return await http.get(
@@ -78,11 +73,8 @@ Future<http.Response> regularGet(String path) async {
 }
 
 Future<http.Response> regularPost(Map<String, dynamic> payload, String path) async{
-  final uri = Uri(
-    scheme: scheme,
-    host: host,
-    port: port,      // your host
-    path: path,      // your path
+  final uri = Uri.parse(socketString).replace(
+    path: path,
   );
 
   return await http.post(
