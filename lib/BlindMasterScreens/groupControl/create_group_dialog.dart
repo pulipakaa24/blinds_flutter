@@ -19,7 +19,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   bool isLoading = true;
   String? errorMessage;
 
-  final bool dev = true;
+  final bool dev = false;
 
   @override
   void initState() {

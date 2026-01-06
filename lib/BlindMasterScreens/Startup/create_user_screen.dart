@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:blind_master/BlindMasterResources/error_snackbar.dart';
 import 'package:blind_master/BlindMasterResources/secure_transmissions.dart';
 import 'package:flutter/material.dart';
@@ -57,6 +59,11 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
         }
       } else {
         if (response.statusCode == 409) throw Exception('Email Already In Use!');
+        if (response.statusCode == 429) {
+          final body = json.decode(response.body);
+          final retryAfter = body['retryAfter'] ?? 'some time';
+          throw Exception('Too many account creation attempts. Please try again in $retryAfter minutes.');
+        }
         throw Exception('Create failed: ${response.statusCode}');
       }
 

@@ -51,6 +51,11 @@ class _LoginScreenState extends State<LoginScreen> {
       final response = await regularPost(payload, 'login');
       if (response.statusCode != 200) {
         if (response.statusCode == 400) {throw Exception('Email and Password Necessary');}
+        else if (response.statusCode == 429) {
+          final body = json.decode(response.body);
+          final retryAfter = body['retryAfter'] ?? 'some time';
+          throw Exception('Too many login attempts. Please try again in $retryAfter minutes.');
+        }
         else if (response.statusCode == 500) {throw Exception('Server Error');}
         else {throw Exception('Incorrect email or password');}
       }

@@ -27,8 +27,6 @@ class _EditGroupDialogState extends State<EditGroupDialog> {
   bool isLoading = true;
   String? errorMessage;
 
-  final bool dev = true;
-
   @override
   void initState() {
     super.initState();
@@ -91,7 +89,7 @@ class _EditGroupDialogState extends State<EditGroupDialog> {
   }
 
   Future<void> _updateGroup() async {
-    if (selectedPeripheralIds.length < 2 && !dev) {
+    if (selectedPeripheralIds.length < 2) {
       setState(() {
         errorMessage = 'Please select at least 2 blinds';
       });
@@ -151,7 +149,7 @@ class _EditGroupDialogState extends State<EditGroupDialog> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: selectedPeripheralIds.length >= 2 || dev
+                    color: selectedPeripheralIds.length >= 2
                       ? Theme.of(context).primaryColorLight.withValues(alpha: 0.5) 
                       : Colors.orange.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(10),

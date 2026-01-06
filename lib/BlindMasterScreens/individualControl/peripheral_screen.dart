@@ -67,6 +67,23 @@ class _PeripheralScreenState extends State<PeripheralScreen> {
     try {
       socket = await connectSocket();
       if (socket == null) throw Exception("Unsuccessful socket connection");
+      
+      // Handle rate limiting errors
+      socket?.on("error", (data) async {
+        if (data is Map<String, dynamic>) {
+          if (data['code'] == 429) {
+            // Rate limited - wait and reconnect
+            print("Rate limited: ${data['message']}. Reconnecting in 1 second...");
+            socket?.disconnect();
+            socket?.dispose();
+            await Future.delayed(const Duration(seconds: 1));
+            if (mounted) {
+              initSocket();
+            }
+          }
+        }
+      });
+      
       socket?.on("success", (_) {
         socket?.on("device_connected", (data) {
           if (data is Map<String, dynamic>) {

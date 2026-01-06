@@ -27,7 +27,7 @@ Future<http.Response?> secureGet(String path, {Map<String, dynamic>? queryParame
     queryParameters: queryParameters?.map((key, value) => MapEntry(key, value.toString())),
   );
 
-  return await http
+  var response = await http
     .get(
       uri,
       headers: {
@@ -35,7 +35,23 @@ Future<http.Response?> secureGet(String path, {Map<String, dynamic>? queryParame
         'Content-Type': 'application/json',
       },
     )
-    .timeout(const Duration(seconds: 10)); // 🚀 Timeout added
+    .timeout(const Duration(seconds: 10));
+  
+  // Retry once if rate limited
+  if (response.statusCode == 429) {
+    await Future.delayed(const Duration(seconds: 1));
+    response = await http
+      .get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      )
+      .timeout(const Duration(seconds: 10));
+  }
+  
+  return response;
 }
 
 Future<http.Response?> securePost(Map<String, dynamic> payload, String path) async{
@@ -47,7 +63,7 @@ Future<http.Response?> securePost(Map<String, dynamic> payload, String path) asy
     path: path,
   );
 
-  return await http.post(
+  var response = await http.post(
     uri,
     headers: {
       'Authorization': 'Bearer $token',
@@ -55,7 +71,23 @@ Future<http.Response?> securePost(Map<String, dynamic> payload, String path) asy
     },
     body: json.encode(payload),
   )
-  .timeout(const Duration(seconds: 10)); // 🚀 Timeout added
+  .timeout(const Duration(seconds: 10));
+  
+  // Retry once if rate limited
+  if (response.statusCode == 429) {
+    await Future.delayed(const Duration(seconds: 1));
+    response = await http.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: json.encode(payload),
+    )
+    .timeout(const Duration(seconds: 10));
+  }
+  
+  return response;
 }
 
 Future<http.Response> regularGet(String path) async {
@@ -63,13 +95,27 @@ Future<http.Response> regularGet(String path) async {
     path: path,
   );
 
-  return await http.get(
+  var response = await http.get(
     uri,
     headers: {
       'Content-Type': 'application/json',
     }
   )
-  .timeout(const Duration(seconds: 10)); // 🚀 Timeout added
+  .timeout(const Duration(seconds: 10));
+  
+  // Retry once if rate limited
+  if (response.statusCode == 429) {
+    await Future.delayed(const Duration(seconds: 1));
+    response = await http.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    )
+    .timeout(const Duration(seconds: 10));
+  }
+  
+  return response;
 }
 
 Future<http.Response> regularPost(Map<String, dynamic> payload, String path) async{
@@ -77,13 +123,27 @@ Future<http.Response> regularPost(Map<String, dynamic> payload, String path) asy
     path: path,
   );
 
-  return await http.post(
+  var response = await http.post(
     uri,
     headers: {
       'Content-Type': 'application/json',
     },
     body: json.encode(payload)
-  ).timeout(const Duration(seconds: 10)); // 🚀 Timeout added
+  ).timeout(const Duration(seconds: 10));
+  
+  // Retry once if rate limited
+  if (response.statusCode == 429) {
+    await Future.delayed(const Duration(seconds: 1));
+    response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: json.encode(payload)
+    ).timeout(const Duration(seconds: 10));
+  }
+  
+  return response;
 }
 
 Future<IO.Socket?> connectSocket() async {
