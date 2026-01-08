@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 
 import 'package:blind_master/BlindMasterResources/text_inputs.dart';
 import 'package:blind_master/BlindMasterResources/title_text.dart';
-import 'package:blind_master/BlindMasterScreens/Startup/verification_waiting_screen.dart';
+import 'package:blind_master/BlindMasterScreens/Startup/verify_new_email_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class CreateUserScreen extends StatefulWidget {

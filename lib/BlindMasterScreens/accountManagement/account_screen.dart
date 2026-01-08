@@ -67,6 +67,95 @@ class _AccountScreenState extends State<AccountScreen> {
     }
   }
 
+  Future<void> _handleDeleteAccount() async {
+    final primaryColor = Theme.of(context).primaryColorLight;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.warning, color: Colors.red),
+              SizedBox(width: 10),
+              Text('Delete Account'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Are you sure you want to delete your account?',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 10),
+              Text('This action cannot be undone. All your data will be permanently deleted.'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text('Delete Account'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        // Show loading indicator
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext loadingContext) {
+            return Center(
+              child: CircularProgressIndicator(
+                color: primaryColor,
+              ),
+            );
+          },
+        );
+
+        final response = await secureDelete('delete_account');
+
+        // Remove loading indicator
+        if (mounted) Navigator.of(context).pop();
+
+        if (response == null) {
+          throw Exception('No response from server');
+        }
+
+        if (response.statusCode == 200) {
+          if (!mounted) return;
+          
+          // Navigate to splash screen (remove all routes)
+          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        } else {
+          final body = json.decode(response.body);
+          throw Exception(body['error'] ?? 'Failed to delete account');
+        }
+      } catch (e) {
+        // Remove loading indicator if still showing
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
+      }
+    }
+  }
+
   Future<void> _handleChangeEmail() async {
     final TextEditingController emailController = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -283,6 +372,30 @@ class _AccountScreenState extends State<AccountScreen> {
                             },
                           ),
                         ],
+                      ),
+                    ),
+                    SizedBox(height: 30),
+                    
+                    // Danger Zone Section
+                    Text(
+                      'Danger Zone',
+                      style: GoogleFonts.aBeeZee(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                    SizedBox(height: 15),
+                    Card(
+                      elevation: 2,
+                      child: ListTile(
+                        leading: Icon(Icons.delete_forever, color: Colors.red),
+                        title: Text(
+                          'Delete Account',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                        trailing: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.red),
+                        onTap: _handleDeleteAccount,
                       ),
                     ),
                   ],

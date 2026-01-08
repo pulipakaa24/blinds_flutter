@@ -90,6 +90,40 @@ Future<http.Response?> securePost(Map<String, dynamic> payload, String path) asy
   return response;
 }
 
+Future<http.Response?> secureDelete(String path) async{
+  final storage = FlutterSecureStorage();
+  final token = await storage.read(key: 'token');
+  if (token == null) return null;
+
+  final uri = Uri.parse(socketString).replace(
+    path: path,
+  );
+
+  var response = await http.delete(
+    uri,
+    headers: {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    },
+  )
+  .timeout(const Duration(seconds: 10));
+  
+  // Retry once if rate limited
+  if (response.statusCode == 429) {
+    await Future.delayed(const Duration(seconds: 1));
+    response = await http.delete(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    )
+    .timeout(const Duration(seconds: 10));
+  }
+  
+  return response;
+}
+
 Future<http.Response> regularGet(String path) async {
   final uri = Uri.parse(socketString).replace(
     path: path,

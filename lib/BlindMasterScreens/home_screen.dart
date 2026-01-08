@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:blind_master/BlindMasterScreens/groupControl/groups_menu.dart';
 import 'package:blind_master/BlindMasterScreens/individualControl/devices_menu.dart';
 import 'package:blind_master/BlindMasterScreens/Startup/splash_screen.dart';
-import 'package:blind_master/BlindMasterScreens/account_screen.dart';
+import 'package:blind_master/BlindMasterScreens/accountManagement/account_screen.dart';
 import 'package:blind_master/BlindMasterResources/secure_transmissions.dart';
 import 'package:blind_master/BlindMasterResources/error_snackbar.dart';
 import 'package:flutter/material.dart';

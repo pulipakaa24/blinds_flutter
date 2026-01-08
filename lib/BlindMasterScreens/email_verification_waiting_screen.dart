@@ -1,23 +1,26 @@
 import 'dart:async';
-import 'dart:convert';
-
 import 'package:blind_master/BlindMasterResources/error_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:blind_master/BlindMasterResources/title_text.dart';
-import 'package:http/http.dart' as http;
 
-class VerificationWaitingScreen extends StatefulWidget {
-  final String token;
-  
-  const VerificationWaitingScreen({super.key, required this.token});
-
-  @override
-  State<VerificationWaitingScreen> createState() => _VerificationWaitingScreenState();
+abstract class BaseVerificationWaitingScreen extends StatefulWidget {
+  const BaseVerificationWaitingScreen({super.key});
 }
 
-class _VerificationWaitingScreenState extends State<VerificationWaitingScreen> {
+abstract class BaseVerificationWaitingScreenState<T extends BaseVerificationWaitingScreen> extends State<T> {
   Timer? _pollingTimer;
   bool _isChecking = false;
+
+  // Abstract methods to be implemented by subclasses
+  String get title;
+  String get mainMessage;
+  String? get highlightedInfo => null;
+  String get instructionMessage;
+  String get successMessage;
+  
+  Future<bool> checkStatus();
+  Future<void> resendVerification();
+  void onSuccess();
 
   @override
   void initState() {
@@ -33,11 +36,11 @@ class _VerificationWaitingScreenState extends State<VerificationWaitingScreen> {
 
   void _startPolling() {
     _pollingTimer = Timer.periodic(Duration(seconds: 5), (timer) {
-      _checkVerificationStatus();
+      _checkStatus();
     });
   }
 
-  Future<void> _checkVerificationStatus() async {
+  Future<void> _checkStatus() async {
     if (_isChecking) return;
     
     setState(() {
@@ -45,41 +48,30 @@ class _VerificationWaitingScreenState extends State<VerificationWaitingScreen> {
     });
 
     try {
-      final uri = Uri.parse('https://wahwa.com').replace(path: 'verification_status');
+      final isComplete = await checkStatus();
       
-      final response = await http.get(
-        uri,
-        headers: {
-          'Authorization': 'Bearer ${widget.token}',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 10));
-      
-      if (response.statusCode == 200) {
-        final body = json.decode(response.body);
-        if (body['is_verified'] == true) {
-          _pollingTimer?.cancel();
-          if (!mounted) return;
-          
-          Navigator.of(context).popUntil((route) => route.isFirst);
-          
-          ScaffoldMessenger.of(context).clearSnackBars();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: Colors.green[800],
-              duration: Duration(seconds: 4),
-              content: Text(
-                "Account verified successfully! You can now log in.",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15),
-              ),
-            )
-          );
-        }
+      if (isComplete) {
+        _pollingTimer?.cancel();
+        if (!mounted) return;
+        
+        onSuccess();
+        
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.green[800],
+            duration: Duration(seconds: 4),
+            content: Text(
+              successMessage,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 15),
+            ),
+          )
+        );
       }
     } catch (e) {
       // Silently fail for polling - don't show error to user
-      print('Verification status check failed: $e');
+      print('Status check failed: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -89,40 +81,23 @@ class _VerificationWaitingScreenState extends State<VerificationWaitingScreen> {
     }
   }
 
-  Future<void> _resendVerificationEmail() async {
+  Future<void> _handleResend() async {
     try {
-      final uri = Uri.parse('https://wahwa.com').replace(path: 'resend_verification');
-      
-      final response = await http.post(
-        uri,
-        headers: {
-          'Authorization': 'Bearer ${widget.token}',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({}),
-      ).timeout(const Duration(seconds: 10));
+      await resendVerification();
       
       if (!mounted) return;
       
-      if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).clearSnackBars();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Colors.green[800],
-            content: Text(
-              "Verification email sent! Please check your inbox.",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 15),
-            ),
-          )
-        );
-      } else if (response.statusCode == 429) {
-        final body = json.decode(response.body);
-        final retryAfter = body['retryAfter'] ?? 20;
-        throw Exception('Please wait $retryAfter seconds before requesting another email.');
-      } else {
-        throw Exception('Failed to resend verification email');
-      }
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.green[800],
+          content: Text(
+            "Verification email sent! Please check your inbox.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 15),
+          ),
+        )
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).clearSnackBars();
@@ -133,7 +108,7 @@ class _VerificationWaitingScreenState extends State<VerificationWaitingScreen> {
   }
 
   Future<void> _onRefresh() async {
-    await _checkVerificationStatus();
+    await _checkStatus();
   }
 
   @override
@@ -151,12 +126,12 @@ class _VerificationWaitingScreenState extends State<VerificationWaitingScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    TitleText("Verify Your Email", txtClr: Colors.white),
+                    TitleText(title, txtClr: Colors.white),
                     SizedBox(height: 30),
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 40),
                       child: Text(
-                        "We've sent a verification link to your email from blindmasterapp@wahwa.com",
+                        mainMessage,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white,
@@ -164,6 +139,21 @@ class _VerificationWaitingScreenState extends State<VerificationWaitingScreen> {
                         ),
                       ),
                     ),
+                    if (highlightedInfo != null) ...[
+                      SizedBox(height: 10),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 40),
+                        child: Text(
+                          highlightedInfo!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                     SizedBox(height: 20),
                     if (_isChecking)
                       CircularProgressIndicator(
@@ -179,7 +169,7 @@ class _VerificationWaitingScreenState extends State<VerificationWaitingScreen> {
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 40),
                       child: Text(
-                        "Click the link in the email to verify your account. This page will automatically update once verified.",
+                        instructionMessage,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white70,
@@ -189,7 +179,7 @@ class _VerificationWaitingScreenState extends State<VerificationWaitingScreen> {
                     ),
                     SizedBox(height: 40),
                     ElevatedButton(
-                      onPressed: _resendVerificationEmail,
+                      onPressed: _handleResend,
                       child: Text("Resend Verification Email"),
                     ),
                     SizedBox(height: 20),
