@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 
 import 'package:blind_master/BlindMasterResources/text_inputs.dart';
 import 'package:blind_master/BlindMasterResources/title_text.dart';
+import 'package:blind_master/BlindMasterScreens/Startup/verification_waiting_screen.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class CreateUserScreen extends StatefulWidget {
   const CreateUserScreen({super.key});
@@ -44,18 +46,25 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
 
       if (response.statusCode == 201) {
         if(mounted) {
-          ScaffoldMessenger.of(context).clearSnackBars();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: Colors.green[800],
-              content: Text(
-                "Account Successfully Created!",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15),
+          // Extract token from response body
+          final body = json.decode(response.body);
+          final token = body['token'];
+          
+          if (token != null && token.isNotEmpty) {
+            // Store token temporarily for verification checking
+            final storage = FlutterSecureStorage();
+            await storage.write(key: 'temp_token', value: token);
+            
+            // Navigate to verification waiting screen
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => VerificationWaitingScreen(token: token),
               ),
-            )
-          );
-          Navigator.pop(context);
+            );
+          } else {
+            throw Exception('No token received from server');
+          }
         }
       } else {
         if (response.statusCode == 409) throw Exception('Email Already In Use!');

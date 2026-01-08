@@ -51,6 +51,23 @@ class _LoginScreenState extends State<LoginScreen> {
       final response = await regularPost(payload, 'login');
       if (response.statusCode != 200) {
         if (response.statusCode == 400) {throw Exception('Email and Password Necessary');}
+        else if (response.statusCode == 403) {
+          // Email not verified
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).clearSnackBars();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: Colors.orange[700],
+              duration: Duration(seconds: 4),
+              content: Text(
+                "Your account has not been verified. Please check your email from blindmasterapp@wahwa.com and verify your account.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 15),
+              ),
+            )
+          );
+          return;
+        }
         else if (response.statusCode == 429) {
           final body = json.decode(response.body);
           final retryAfter = body['retryAfter'] ?? 'some time';
