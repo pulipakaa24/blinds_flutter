@@ -42,9 +42,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     });
 
     try {
+      final localHour = DateTime.now().hour;
       final response = await regularPost(
         {
           'email': _emailController.text.trim(),
+          'localHour': localHour,
         },
         '/forgot-password',
       );

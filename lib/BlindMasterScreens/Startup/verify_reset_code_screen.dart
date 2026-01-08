@@ -124,9 +124,11 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
     });
 
     try {
+      final localHour = DateTime.now().hour;
       final response = await regularPost(
         {
           'email': widget.email,
+          'localHour': localHour,
         },
         '/forgot-password',
       );
