@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:blind_master/BlindMasterResources/error_snackbar.dart';
 import 'package:blind_master/BlindMasterResources/secure_transmissions.dart';
+import 'package:blind_master/BlindMasterScreens/change_password_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -132,18 +133,18 @@ class _AccountScreenState extends State<AccountScreen> {
                       elevation: 2,
                       child: Column(
                         children: [
-                          // Placeholder for future options
-                          Padding(
-                            padding: const EdgeInsets.all(20.0),
-                            child: Center(
-                              child: Text(
-                                'Additional options will appear here',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontStyle: FontStyle.italic,
+                          ListTile(
+                            leading: Icon(Icons.lock_outline),
+                            title: Text('Change Password'),
+                            trailing: Icon(Icons.arrow_forward_ios, size: 16),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ChangePasswordScreen(),
                                 ),
-                              ),
-                            ),
+                              );
+                            },
                           ),
                         ],
                       ),

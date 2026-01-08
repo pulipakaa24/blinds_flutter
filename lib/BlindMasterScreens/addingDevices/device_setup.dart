@@ -58,6 +58,7 @@ class _DeviceSetupState extends State<DeviceSetup> {
 
   final passControl = TextEditingController();
   final unameControl = TextEditingController();
+  bool _obscureWifiPassword = true;
 
   @override void initState() {
     super.initState();
@@ -201,72 +202,92 @@ class _DeviceSetupState extends State<DeviceSetup> {
   Future authenticate(Map<String, dynamic> network) async {
     bool ent = isEnterprise(network);
     bool open = isOpen(network);
+    
+    // Reset password visibility state for new dialog
+    _obscureWifiPassword = true;
+    
     Map<String, String> creds = await showDialog(
       context: context, 
       builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(
-            network["ssid"],
-            style: GoogleFonts.aBeeZee(),
-          ),
-          content: Form(
-            autovalidateMode: AutovalidateMode.onUnfocus,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (ent)
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      TextFormField(
-                        controller: unameControl,
-                        decoration: const InputDecoration(hintText: "Enter your enterprise login"),
-                        textInputAction: TextInputAction.next, // Shows "Next" on keyboard
-                        onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(), // Moves to password
-                        validator: (value) => (value == null || value.isEmpty) ? "Empty username!" : null,
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text(
+                network["ssid"],
+                style: GoogleFonts.aBeeZee(),
+              ),
+              content: Form(
+                autovalidateMode: AutovalidateMode.onUnfocus,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (ent)
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          TextFormField(
+                            controller: unameControl,
+                            decoration: const InputDecoration(hintText: "Enter your enterprise login"),
+                            textInputAction: TextInputAction.next,
+                            onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                            validator: (value) => (value == null || value.isEmpty) ? "Empty username!" : null,
+                          ),
+                          const SizedBox(height: 16),
+                        ]
                       ),
-                      const SizedBox(height: 16),
-                    ]
-                  ),
-                if (!open)
-                  TextFormField(
-                    controller: passControl,
-                    obscureText: true,
-                    decoration: const InputDecoration(hintText: "Enter password"),
-                    validator: (value) => (value == null || value.length < 8) ? "Not long enough!" : null,
-                    textInputAction: TextInputAction.send,
-                    onFieldSubmitted: (value) {
-                      if (Form.of(context).validate()) {
-                        Navigator.pop(dialogContext, (ent ?
-                          {"uname": unameControl.text, "password": passControl.text}
-                          : (open ? {} : {"password": passControl.text})));
-                      }
-                    },
-                  ),
-              ]
-            )
-              
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                unameControl.clear();
-                passControl.clear();
-                Navigator.pop(dialogContext);
-              },
-              child: const Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, (ent ?
-                  {"uname": unameControl.text, "password": passControl.text}
-                  : (open ? {} : {"password": passControl.text})));
-                passControl.clear();
-                unameControl.clear();
-              },
-              child: const Text("Connect"),
-            ),
-          ],
+                    if (!open)
+                      TextFormField(
+                        controller: passControl,
+                        obscureText: _obscureWifiPassword,
+                        decoration: InputDecoration(
+                          hintText: "Enter password",
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureWifiPassword ? Icons.visibility : Icons.visibility_off,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscureWifiPassword = !_obscureWifiPassword;
+                              });
+                            },
+                          ),
+                        ),
+                        validator: (value) => (value == null || value.length < 8) ? "Not long enough!" : null,
+                        textInputAction: TextInputAction.send,
+                        onFieldSubmitted: (value) {
+                          if (Form.of(context).validate()) {
+                            Navigator.pop(dialogContext, (ent ?
+                              {"uname": unameControl.text, "password": passControl.text}
+                              : (open ? {} : {"password": passControl.text})));
+                          }
+                        },
+                      ),
+                  ]
+                )
+                  
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    unameControl.clear();
+                    passControl.clear();
+                    Navigator.pop(dialogContext);
+                  },
+                  child: const Text("Cancel"),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext, (ent ?
+                      {"uname": unameControl.text, "password": passControl.text}
+                      : (open ? {} : {"password": passControl.text})));
+                    passControl.clear();
+                    unameControl.clear();
+                  },
+                  child: const Text("Connect"),
+                ),
+              ],
+            );
+          }
         );
       }
     );

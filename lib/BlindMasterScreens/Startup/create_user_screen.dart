@@ -21,6 +21,7 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
   final emailController = TextEditingController();
   final nameController = TextEditingController();
   final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
 
   final _passFormKey = GlobalKey<FormState>();
   final _emailFormKey = GlobalKey<FormState>();
@@ -87,13 +88,24 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
     
   }
 
-  String? confirmPasswordValidator(String? input) {
-    if (input == passwordController.text) {
-      return null;
+  String? passwordValidator(String? input) {
+    if (input == null || input.isEmpty) {
+      return 'Password is required';
     }
-    else {
+    if (input.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+    return null;
+  }
+
+  String? confirmPasswordValidator(String? input) {
+    if (input == null || input.isEmpty) {
+      return 'Please confirm your password';
+    }
+    if (input != passwordController.text) {
       return "Passwords do not match!";
     }
+    return null;
   }
 
   String? emailValidator(String? input) {
@@ -135,18 +147,20 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
                   ),
                   Form(
                     key: _passFormKey,
-                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    autovalidateMode: AutovalidateMode.onUnfocus,
                     child: Column(
                       children: [
                         BlindMasterMainInput(
                           "Password",
                           password: true, 
-                          controller: passwordController
+                          controller: passwordController,
+                          validator: passwordValidator,
                         ),
                         BlindMasterMainInput(
                           "Confirm Password",
                           validator: confirmPasswordValidator,
                           password: true,
+                          controller: confirmPasswordController,
                         )
                       ],
                     )

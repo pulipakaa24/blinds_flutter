@@ -1,5 +1,6 @@
 import 'package:blind_master/BlindMasterResources/secure_transmissions.dart';
 import 'package:blind_master/BlindMasterScreens/Startup/create_user_screen.dart';
+import 'package:blind_master/BlindMasterScreens/Startup/forgot_password_screen.dart';
 import 'package:blind_master/BlindMasterScreens/home_screen.dart';
 import 'package:blind_master/BlindMasterResources/error_snackbar.dart';
 import 'package:blind_master/BlindMasterResources/fade_transition.dart';
@@ -107,6 +108,13 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  void switchToForgotPassword() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -121,7 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 children: [
                   BlindMasterMainInput("Email", controller: emailController),
-                  BlindMasterMainInput("Password", controller: passwordController, password: true,),
+                  BlindMasterMainInput("Password", controller: passwordController, password: true),
                 ],
               ),
             ),
@@ -138,6 +146,13 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: switchToCreate, 
               child: Text(
                 "Create Account"
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: switchToForgotPassword,
+              child: Text(
+                "Forgot Password?"
               ),
             ),
           ],
