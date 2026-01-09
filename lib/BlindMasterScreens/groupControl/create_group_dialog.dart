@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:blind_master/BlindMasterResources/secure_transmissions.dart';
+import 'package:blind_master/BlindMasterResources/text_inputs.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -151,21 +152,10 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
           : Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                TextField(
+                BlindMasterInput(
+                  'Group Name',
                   controller: _nameController,
-                  decoration: InputDecoration(
-                    labelText: 'Group Name',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(
-                        color: Theme.of(context).primaryColorDark,
-                        width: 2,
-                      ),
-                    ),
-                  ),
+                  focusedBorderColor: Theme.of(context).primaryColorDark,
                   onChanged: (_) {
                     if (errorMessage != null) {
                       setState(() {

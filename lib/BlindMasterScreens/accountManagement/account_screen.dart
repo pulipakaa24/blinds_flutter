@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:blind_master/BlindMasterResources/error_snackbar.dart';
 import 'package:blind_master/BlindMasterResources/secure_transmissions.dart';
 import 'package:blind_master/BlindMasterScreens/accountManagement/change_password_screen.dart';
-import 'package:blind_master/BlindMasterScreens/accountManagement/verify_email_change_screen.dart';
+import 'package:blind_master/BlindMasterScreens/accountManagement/change_email_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -157,130 +157,27 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 
   Future<void> _handleChangeEmail() async {
-    final TextEditingController emailController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    final primaryColor = Theme.of(context).primaryColorLight;
+    if (email == null || email == 'N/A') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red[700],
+          content: Text('Unable to load current email'),
+        ),
+      );
+      return;
+    }
 
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text('Change Email'),
-          content: Form(
-            key: formKey,
-            child: TextFormField(
-              controller: emailController,
-              decoration: InputDecoration(
-                labelText: 'New Email Address',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.email),
-              ),
-              keyboardType: TextInputType.emailAddress,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter an email address';
-                }
-                final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
-                if (!emailRegex.hasMatch(value)) {
-                  return 'Please enter a valid email';
-                }
-                if (value == email) {
-                  return 'This is your current email';
-                }
-                return null;
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () async {
-                if (formKey.currentState!.validate()) {
-                  Navigator.of(dialogContext).pop(true);
-                }
-              },
-              child: Text('Send Verification'),
-            ),
-          ],
-        );
-      },
+    // Navigate to change email screen
+    final success = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChangeEmailScreen(currentEmail: email!),
+      ),
     );
 
-    // Allow dialog to fully close before disposing controller
-    await Future.delayed(Duration(milliseconds: 100));
-    
-    if (result == true && mounted) {
-      final newEmail = emailController.text.trim();
-      
-      try {
-        // Show loading indicator
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext loadingContext) {
-            return Center(
-              child: CircularProgressIndicator(
-                color: primaryColor,
-              ),
-            );
-          },
-        );
-
-        final localHour = DateTime.now().hour;
-        final response = await securePost(
-          {
-            'newEmail': newEmail,
-            'localHour': localHour,
-          },
-          'request-email-change',
-        );
-
-        // Remove loading indicator
-        if (mounted) Navigator.of(context).pop();
-
-        if (response == null) {
-          throw Exception('No response from server');
-        }
-
-        if (response.statusCode == 200) {
-          if (!mounted) return;
-          
-          // Navigate to waiting screen
-          final success = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => EmailChangeWaitingScreen(newEmail: newEmail),
-            ),
-          );
-
-          // If email was changed successfully, refresh account info
-          if (success == true && mounted) {
-            await fetchAccountInfo();
-          }
-        } else {
-          final body = json.decode(response.body);
-          throw Exception(body['error'] ?? 'Failed to send verification email');
-        }
-      } catch (e) {
-        // Remove loading indicator if still showing
-        if (mounted && Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        }
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
-      } finally {
-        emailController.dispose();
-      }
-    } else {
-      emailController.dispose();
+    // If email was changed successfully, refresh account info
+    if (success == true && mounted) {
+      await fetchAccountInfo();
     }
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../../BlindMasterResources/secure_transmissions.dart';
+import '../../BlindMasterResources/text_inputs.dart';
 import 'verify_reset_code_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -139,13 +140,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
-                  TextFormField(
+                  BlindMasterInput(
+                    'Email',
                     controller: _emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.email),
-                    ),
+                    prefixIcon: Icons.email,
                     keyboardType: TextInputType.emailAddress,
                     validator: _emailValidator,
                     enabled: !_isLoading,

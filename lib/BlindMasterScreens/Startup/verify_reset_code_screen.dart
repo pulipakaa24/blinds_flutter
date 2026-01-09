@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
 import '../../BlindMasterResources/secure_transmissions.dart';
+import '../../BlindMasterResources/text_inputs.dart';
 import 'reset_password_form_screen.dart';
 
 class VerifyResetCodeScreen extends StatefulWidget {
@@ -220,14 +221,11 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
-                  TextFormField(
+                  BlindMasterInput(
+                    'Reset Code',
                     controller: _codeController,
-                    decoration: const InputDecoration(
-                      labelText: 'Reset Code',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.security),
-                      hintText: 'ABC123',
-                    ),
+                    prefixIcon: Icons.security,
+                    hintText: 'ABC123',
                     keyboardType: TextInputType.text,
                     textCapitalization: TextCapitalization.characters,
                     inputFormatters: [
@@ -237,11 +235,6 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
                     validator: _codeValidator,
                     enabled: !_isLoading && !_isResending,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      letterSpacing: 8,
-                      fontWeight: FontWeight.bold,
-                    ),
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(

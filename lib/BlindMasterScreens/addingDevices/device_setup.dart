@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:blind_master/BlindMasterResources/error_snackbar.dart';
+import 'package:blind_master/BlindMasterResources/text_inputs.dart';
 import 'package:blind_master/BlindMasterScreens/addingDevices/set_device_name.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -58,7 +59,6 @@ class _DeviceSetupState extends State<DeviceSetup> {
 
   final passControl = TextEditingController();
   final unameControl = TextEditingController();
-  bool _obscureWifiPassword = true;
 
   @override void initState() {
     super.initState();
@@ -203,9 +203,6 @@ class _DeviceSetupState extends State<DeviceSetup> {
     bool ent = isEnterprise(network);
     bool open = isOpen(network);
     
-    // Reset password visibility state for new dialog
-    _obscureWifiPassword = true;
-    
     Map<String, String> creds = await showDialog(
       context: context, 
       builder: (dialogContext) {
@@ -225,9 +222,10 @@ class _DeviceSetupState extends State<DeviceSetup> {
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          TextFormField(
+                          BlindMasterInput(
+                            'Enterprise Login',
                             controller: unameControl,
-                            decoration: const InputDecoration(hintText: "Enter your enterprise login"),
+                            hintText: "Enter your enterprise login",
                             textInputAction: TextInputAction.next,
                             onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
                             validator: (value) => (value == null || value.isEmpty) ? "Empty username!" : null,
@@ -236,22 +234,11 @@ class _DeviceSetupState extends State<DeviceSetup> {
                         ]
                       ),
                     if (!open)
-                      TextFormField(
+                      BlindMasterInput(
+                        'WiFi Password',
                         controller: passControl,
-                        obscureText: _obscureWifiPassword,
-                        decoration: InputDecoration(
-                          hintText: "Enter password",
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscureWifiPassword ? Icons.visibility : Icons.visibility_off,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _obscureWifiPassword = !_obscureWifiPassword;
-                              });
-                            },
-                          ),
-                        ),
+                        password: true,
+                        hintText: "Enter password",
                         validator: (value) => (value == null || value.length < 8) ? "Not long enough!" : null,
                         textInputAction: TextInputAction.send,
                         onFieldSubmitted: (value) {

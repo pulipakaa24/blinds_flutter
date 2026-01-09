@@ -211,12 +211,9 @@ class _DeviceScreenState extends State<DeviceScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min, // Keep column compact
             children: <Widget>[
-              TextFormField(
+              BlindMasterInput(
+                'Peripheral Name',
                 controller: _newPeripheralNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Peripheral Name',
-                  border: OutlineInputBorder(),
-                ),
               ),
               const SizedBox(height: 20),
               DropdownButtonFormField<int>(
