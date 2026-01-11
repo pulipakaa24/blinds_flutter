@@ -57,6 +57,9 @@ class _DeviceSetupState extends State<DeviceSetup> {
   Widget? wifiList;
   String? message;
 
+  // Device info from BLE characteristic
+  Map<String, dynamic>? deviceInfo;
+
   final passControl = TextEditingController();
   final unameControl = TextEditingController();
 
@@ -192,6 +195,24 @@ class _DeviceSetupState extends State<DeviceSetup> {
 
   Future initSetup() async {
     await discoverServices();
+    
+    // Read device info characteristic immediately on connect
+    try {
+      final deviceInfoChar = _services[0].characteristics.lastWhere((c) => c.uuid.str == "0006");
+      final rawInfo = await deviceInfoChar.read();
+      if (rawInfo.isNotEmpty) {
+        final infoStr = utf8.decode(rawInfo);
+        if (infoStr.trim().isNotEmpty) {
+          setState(() {
+            deviceInfo = json.decode(infoStr) as Map<String, dynamic>;
+          });
+        }
+      }
+    } catch (e) {
+      // Device info is optional, continue without it
+      debugPrint("Could not read device info: $e");
+    }
+    
     final ssidListChar = _services[0].characteristics.lastWhere((c) => c.uuid.str == "0000");
     final ssidRefreshChar = _services[0].characteristics.lastWhere((c) => c.uuid.str == "0004");
     await setRefreshListener(ssidRefreshChar, ssidListChar);
@@ -379,6 +400,58 @@ class _DeviceSetupState extends State<DeviceSetup> {
     }
   }
 
+  void _showDeviceInfoDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          "Device Information",
+          style: GoogleFonts.aBeeZee(),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (deviceInfo != null) ...[
+              _buildInfoRow("MAC Address", deviceInfo!["mac"] ?? "Unknown"),
+              const SizedBox(height: 12),
+              _buildInfoRow("Model", deviceInfo!["model"] ?? "Unknown"),
+              const SizedBox(height: 12),
+              _buildInfoRow("Firmware", deviceInfo!["firmware"] ?? "Unknown"),
+            ] else
+              const Text("Device info not available"),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Close"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "$label: ",
+          style: GoogleFonts.aBeeZee(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Expanded(
+          child: SelectableText(
+            value,
+            style: GoogleFonts.aBeeZee(),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -388,6 +461,13 @@ class _DeviceSetupState extends State<DeviceSetup> {
           style: GoogleFonts.aBeeZee(),
         ),
         backgroundColor: Theme.of(context).primaryColorLight,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: "Device Info",
+            onPressed: _showDeviceInfoDialog,
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: refreshWifiList,
