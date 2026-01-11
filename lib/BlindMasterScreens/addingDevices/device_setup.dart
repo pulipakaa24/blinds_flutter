@@ -91,12 +91,21 @@ class _DeviceSetupState extends State<DeviceSetup> {
           List<int> rawData = await ssidListChar.read();
 
           try {
+            if (rawData.isEmpty) {
+              throw Exception("No data received from device");
+            }
+            
             final val = utf8.decode(rawData);
+            if (val.trim().isEmpty) {
+              throw Exception("Empty response from device");
+            }
+            
             final decoded = json.decode(val) as List;
             networks = decoded.map((e) => e as Map<String, dynamic>).toList();
           } catch (e) {
             if(!mounted)return;
             ScaffoldMessenger.of(context).showSnackBar(errorSnackbar(e));
+            networks = []; // Set to empty list on error
           }
 
           // Acknowledge completion
